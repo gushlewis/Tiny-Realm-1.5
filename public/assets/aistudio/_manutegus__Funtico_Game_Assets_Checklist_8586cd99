@@ -1,0 +1,115 @@
+﻿Funtico Game Assets Checklist
+UPLOAD ASSETS HERE
+Compete-2-Win
+  
+
+
+DOWNLOAD .PSD 
+
+Tournaments
+        On Funtico there are currently two types of tournaments:
+        - Paid; participation/entrance costs $TICO 
+        - Private; participation/entrance is done only via Private Passes  
+        Assets: 
+        - Download TICO icons
+        - Download Private Pass icon
+        
+        To avoid having the same graphics next to each other we request 3-4 of each type to have variation like in the example below: 
+          
+
+Note: If your game also features multiple game modes, the cover should reflect that. In the example below, for Solitaire Slam, we have different sets of covers for the Klondike and Spider game modes:
+
+  
+(Private Tournament; Klondike Game Mode)
+
+  
+(Private Tournament; Spider Game Mode)
+
+* 3x-4x Paid Tournament cover artworks
+Note: Emphasis is on the game promotional graphics, and, optionally, TICO.
+Examples:
+  
+  
+  
+
+* 3x-4x Private Tournament cover artworks
+Note: Emphasis is on the display of Private Pass tickets in the context of the game’s promotional graphics.
+Examples:
+  
+    
+
+
+Rooms
+        Render the artworks in this section keeping in mind the following hex values:
+   * EXPLORER > #38FF00
+   * CONTENDER > #00C8FF
+   * CHALLENGER > #8840E6
+   * CHAMPION > #FFB800 
+
+
+   1. TIERS 
+   * 1x EXPLORER cover artwork
+   * 1x CONTENDER cover artwork
+   * 1x CHALLENGER cover artwork
+   * 1x CHAMPION cover artwork
+
+From CONTENDER to CHAMPION the illustrations need to suggest a form of progression and match the color of the tier, similar to the examples below:
+
+    
+  
+
+
+        The EXPLORER tier cover illustration will be up to you, but needs to reflect the fact the players will not be charged any $TICO for their participation. At the same time, don’t take this too literal. It is preferred that we don’t have any texts on these images.
+
+      2. SUB-TIERS 
+
+These are needed for each tier above. Chromatically, the SUB-TIER artworks also need to match the color of the TIER they are in. The example below features SUB-TIER rooms in the CHALLENGER TIER in Solitaire Slam:
+
+  
+
+Note: Similar to the Tournaments section, if your game features multiple modes, that needs to be reflected in the cover. In the above image you can see how the Spider game mode is differentiated from the Klondike game mode.
+
+         * 1x 1v1 artwork
+only if it’s available or make sense for your game and can become an available mode later down the road
+
+         * 1x 5 players
+         * 1x 15 players
+
+Game Page
+
+Key Art with Logo
+  
+
+DOWNLOAD .PSD
+ 
+            * 1x 1920x1080px artwork
+
+keep all important elements within the middle of the artwork > safe area in the center 1:1, 1080x1080px
+
+               * 1x 1080x1080px artwork
+Media Gallery
+               * 1x 1920x1080 10 seconds trailer
+have a look at some of our other game pages for reference
+               * 5x 1920x1080 screenshots showcasing various aspects of your game
+have a look at some of our other game pages for reference
+About This Game
+                  * 1-2 paragraphs describing your game
+have a look at some of our other game pages for reference
+
+
+How to Play
+                  * ?x 1920x1080px slides explaining the rules of your game and how it works 
+these need to exist in your game as well
+examples:
+                     * https://funtico.com/games/solitaire-slam/how-to-play 
+                     * https://funtico.com/games/bingo-rampage/how-to-play 
+
+
+Mainpage (appears while hovering on game tile on Funtico.com)
+                     * 1x 7 seconds gameplay reel
+
+
+Miscellaneous 
+                     * PNG of your game’s logo 
+                     * mark (if it exists), logotype, combination mark (if mark exists);
+                     * vertical lock-up, square lock-up, horizontal lock-up)

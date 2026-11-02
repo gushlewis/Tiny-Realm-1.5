@@ -1,0 +1,6 @@
+{
+  "name": "Tiny Realm - Medieval Pixel RTS",
+  "description": "A refined medieval pixel-art survival RTS game with day/night wave defense, boss battles, building, and mobile-friendly touch controls.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
