@@ -297,93 +297,41 @@ export default function App() {
           engine={engine}
           lang={lang}
           onStartEndless={handleStartEndless}
-          onOpenCampaign={() => setIsCampaignMapOpen(true)}
           onOpenCodex={() => setIsTutorialOpen(true)}
           onSetLang={handleSetLang}
         />
       )}
 
-      {/* 5. Campaign Map & Chapter Selection Modal */}
-      <CampaignMapModal
-        isOpen={isCampaignMapOpen}
-        lang={lang}
-        onClose={() => setIsCampaignMapOpen(false)}
-        onSelectChapter={handleStartCampaignMission}
-      />
-
-      {/* 6. Narrative Story / Lore Dialogue Cutscene Modal */}
-      {storyDialogue && (
-        <StoryDialogueModal
-          beats={storyDialogue.beats}
-          titleBadge={storyDialogue.titleBadge}
-          lang={lang}
-          onFinish={() => setStoryDialogue(null)}
-        />
-      )}
-
-      {/* 7. Campaign Chapter Victory Fanfare Modal */}
-      {campaignVictoryData && (
-        <CampaignVictoryModal
-          engine={engine}
-          chapterId={campaignVictoryData.chapterId}
-          stars={campaignVictoryData.stars}
-          lang={lang}
-          onNextChapter={handleNextChapter}
-          onOpenMap={() => {
-            setCampaignVictoryData(null);
-            setIsCampaignMapOpen(true);
-          }}
-          onReplay={() => {
-            setCampaignVictoryData(null);
-            handleStartCampaignMission(campaignVictoryData.chapterId);
-          }}
-        />
-      )}
-
-      {/* 8. Gameplay Tutorial Modal */}
+      {/* 5. Gameplay Tutorial Modal */}
       <TutorialModal
         isOpen={isTutorialOpen}
         onClose={handleCloseTutorial}
         lang={lang}
       />
 
-      {/* 9. Strategy Codex Modal */}
+      {/* 6. Strategy Codex Modal */}
       <CodexModal
         isOpen={isCodexOpen}
         onClose={() => setIsCodexOpen(false)}
         lang={lang}
       />
 
-      {/* 10. Restart Confirmation Modal */}
+      {/* 7. Restart Confirmation Modal */}
       <RestartModal
         isOpen={isRestartOpen}
         onCancel={() => setIsRestartOpen(false)}
         onConfirm={() => {
           setIsRestartOpen(false);
-          if (engine.gameMode === "campaign") {
-            handleStartCampaignMission(engine.activeChapter);
-          } else {
-            engine.newGame(true);
-          }
+          handleStartEndless();
         }}
         lang={lang}
       />
 
-      {/* 11. Game Over / Defeat Summary Modal */}
+      {/* 8. Game Over / Defeat Summary Modal */}
       <GameOverModal
         engine={engine}
         lang={lang}
-        onRestart={() => {
-          if (engine.gameMode === "campaign") {
-            handleStartCampaignMission(engine.activeChapter);
-          } else {
-            engine.newGame(true);
-          }
-        }}
-        onOpenMap={() => {
-          engine.setScreen("menu");
-          setIsCampaignMapOpen(true);
-        }}
+        onRestart={handleStartEndless}
       />
 
       {/* 12. Funtico Platform Auth & Network Overlay */}

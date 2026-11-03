@@ -5,34 +5,27 @@
 
 import React, { useState } from "react";
 import { GameEngine } from "../game/engine";
-import { sound } from "../game/audio";
 import { t } from "../game/i18n";
 import { Language } from "../types/game";
-import { loadCampaignProgress } from "../game/campaign";
 import {
-  Play,
   Shield,
-  Sparkles,
   BookOpen,
   Download,
-  Crown,
   Swords,
-  Star,
-  Map,
   Volume2,
   VolumeX,
-  Music,
   Coins,
-  Ticket,
+  Trophy,
 } from "lucide-react";
 import { downloadOfflineGame } from "../game/offlineBundle";
 import { funtico } from "../funtico";
+import { sound } from "../game/audio";
 
 interface StartScreenProps {
   engine: GameEngine;
   lang: Language;
   onStartEndless: () => void;
-  onOpenCampaign: () => void;
+  onOpenCampaign?: () => void;
   onOpenCodex: () => void;
   onSetLang: (lang: Language) => void;
 }
@@ -41,7 +34,6 @@ export const StartScreen: React.FC<StartScreenProps> = ({
   engine,
   lang,
   onStartEndless,
-  onOpenCampaign,
   onOpenCodex,
   onSetLang,
 }) => {
@@ -49,10 +41,8 @@ export const StartScreen: React.FC<StartScreenProps> = ({
 
   const [isMuted, setIsMuted] = useState(sound.muted);
   const [funticoUser, setFunticoUser] = useState(funtico.getCachedUserData());
-  const platformInfo = funtico.getPlatformInfo();
 
   React.useEffect(() => {
-    // Refresh user cache if ready
     if (funtico.getState() === "ready") {
       setFunticoUser(funtico.getCachedUserData());
     }
@@ -63,12 +53,6 @@ export const StartScreen: React.FC<StartScreenProps> = ({
     sound.setMuted(nextMuted);
     setIsMuted(nextMuted);
   };
-
-  const campaignProgress = loadCampaignProgress();
-  const totalStars = Object.values(campaignProgress.chapters).reduce(
-    (acc, c) => acc + (c.stars || 0),
-    0
-  );
 
   return (
     <div className="absolute inset-0 z-40 flex flex-col items-center justify-between p-4 md:p-8 bg-radial from-[#22101b] via-[#10070c] to-[#040205] select-none text-[#cdc3ac] overflow-y-auto">
@@ -137,11 +121,6 @@ export const StartScreen: React.FC<StartScreenProps> = ({
 
       {/* Center Branding & Title */}
       <div className="flex flex-col items-center text-center my-auto max-w-lg w-full py-4">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/15 border border-amber-400/40 text-amber-300 text-[11px] font-mono font-bold tracking-widest uppercase rounded-full mb-3 shadow-[0_0_12px_rgba(245,158,11,0.2)]">
-          <Sparkles size={12} />
-          <span>{lang === "pt" ? "Novo Modo História Disponível" : "New Story Mode Available"}</span>
-        </div>
-
         <div className="text-4xl md:text-6xl font-serif font-black tracking-wider text-[#f2c95a] drop-shadow-[0_4px_16px_rgba(217,173,63,0.4)] mb-2">
           TINY REALM
         </div>
@@ -149,47 +128,28 @@ export const StartScreen: React.FC<StartScreenProps> = ({
           {t("tagline", lang)}
         </div>
 
-        <p className="text-xs md:text-sm text-[#cdc3ac]/80 leading-relaxed max-w-md mb-6">
+        <p className="text-xs md:text-sm text-[#cdc3ac]/80 leading-relaxed max-w-md mb-8">
           {t("subtitle", lang)}
         </p>
 
-        {/* Dual Mode Launch Buttons */}
-        <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md justify-center">
-          {/* 1. Modo Campanha & História (Prominent Golden Button) */}
-          <button
-            onClick={onOpenCampaign}
-            className="group relative flex-1 p-4 bg-gradient-to-r from-[#d9ad3f] via-[#f2c95a] to-[#8a6a1f] text-[#180a04] font-black text-sm tracking-wider uppercase rounded-2xl shadow-[0_0_24px_rgba(217,173,63,0.5)] hover:shadow-[0_0_36px_rgba(217,173,63,0.8)] hover:scale-[1.02] active:scale-95 transition-all flex flex-col items-center text-center"
-          >
-            <div className="flex items-center gap-2 text-base">
-              <Crown size={19} className="fill-current" />
-              <span>{lang === "pt" ? "Modo Campanha" : "Campaign Mode"}</span>
-            </div>
-            <div className="text-[10px] font-mono font-bold text-[#3d2707] tracking-normal mt-0.5 flex items-center gap-1">
-              <span>{lang === "pt" ? "5 Capítulos & História" : "5 Story Chapters"}</span>
-              {totalStars > 0 && (
-                <span className="flex items-center gap-0.5 ml-1 bg-black/20 px-1.5 py-0.2 rounded-full text-amber-950">
-                  <Star size={10} className="fill-current" />
-                  <span>{totalStars}/15</span>
-                </span>
-              )}
-            </div>
-          </button>
-
-          {/* 2. Modo Sobrevivência Infinita */}
+        {/* Central Survival Mode Launch Button */}
+        <div className="w-full max-w-md flex flex-col items-center">
           <button
             onClick={onStartEndless}
-            className="group relative flex-1 p-4 bg-[#1e1017]/90 border-2 border-[#5c4a30] hover:border-[#d9ad3f] text-[#f4c97a] font-black text-sm tracking-wider uppercase rounded-2xl shadow-lg hover:scale-[1.02] active:scale-95 transition-all flex flex-col items-center text-center"
+            className="group relative w-full p-5 bg-gradient-to-r from-[#d9ad3f] via-[#f2c95a] to-[#8a6a1f] text-[#180a04] font-black text-base tracking-wider uppercase rounded-2xl shadow-[0_0_24px_rgba(217,173,63,0.5)] hover:shadow-[0_0_36px_rgba(217,173,63,0.8)] hover:scale-[1.02] active:scale-95 transition-all flex flex-col items-center text-center cursor-pointer"
           >
-            <div className="flex items-center gap-2 text-base">
-              <Swords size={18} />
-              <span>{lang === "pt" ? "Sobrevivência" : "Endless Waves"}</span>
+            <div className="flex items-center gap-2.5 text-lg">
+              <Swords size={22} className="stroke-[2.5]" />
+              <span>{lang === "pt" ? "JOGAR SOBREVIVÊNCIA" : "PLAY SURVIVAL"}</span>
             </div>
-            <div className="text-[10px] font-mono text-[#a8926a] tracking-normal mt-0.5">
-              {engine.bestWave > 0
-                ? `${t("wavesSurvived", lang)}: ${engine.bestWave}`
-                : lang === "pt"
-                ? "Ondas Infinitas"
-                : "Infinite Swarms"}
+            <div className="text-xs font-mono font-bold text-[#3d2707] tracking-normal mt-1 flex items-center gap-2">
+              <span>{lang === "pt" ? "Defesa de Base · Ondas & Chefes" : "Base Defense · Waves & Bosses"}</span>
+              {engine.bestWave > 0 && (
+                <span className="flex items-center gap-1 bg-black/20 px-2 py-0.5 rounded-full text-amber-950 font-mono">
+                  <Trophy size={11} />
+                  <span>{lang === "pt" ? `Melhor: Onda ${engine.bestWave}` : `Best: Wave ${engine.bestWave}`}</span>
+                </span>
+              )}
             </div>
           </button>
         </div>
@@ -197,14 +157,6 @@ export const StartScreen: React.FC<StartScreenProps> = ({
 
       {/* Bottom Footer Actions */}
       <div className="flex flex-wrap items-center justify-center gap-3 pt-4">
-        <button
-          onClick={onOpenCampaign}
-          className="px-4 py-2 bg-[#1a0f14]/80 border border-[#5c4a30] hover:border-[#d9ad3f] text-[#f4c97a] font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all active:scale-95 shadow"
-        >
-          <Map size={14} />
-          <span>{lang === "pt" ? "Mapa da Campanha" : "Campaign Map"}</span>
-        </button>
-
         <button
           onClick={onOpenCodex}
           className="px-4 py-2 bg-[#1a0f14]/80 border border-[#5c4a30] hover:border-[#d9ad3f] text-[#f4c97a] font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all active:scale-95 shadow"

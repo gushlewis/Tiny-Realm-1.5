@@ -48,20 +48,9 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
           <Skull size={28} />
         </div>
 
-        <h2 className="font-serif font-black text-xl md:text-2xl text-red-300 tracking-wider mb-1">
-          {isCampaign
-            ? lang === "pt"
-              ? "MISSÃO FRACASSADA"
-              : "MISSION FAILED"
-            : t("settlementFallen", lang)}
+        <h2 className="font-serif font-black text-xl md:text-2xl text-red-300 tracking-wider mb-2">
+          {t("settlementFallen", lang)}
         </h2>
-        {isCampaign && (
-          <p className="text-xs text-[#a8926a] font-mono mb-2">
-            {lang === "pt"
-              ? "A Câmara Municipal não resistiu à investida da colmeia."
-              : "The Town Hall succumbed to the swarm assault."}
-          </p>
-        )}
 
         {/* Funtico Run Status Banner */}
         {lifecycleContext && lifecycleContext.mode !== "practice" && (
@@ -176,30 +165,17 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row items-center gap-2">
+        <div className="flex items-center justify-center gap-2">
           <button
             onClick={() => {
               lifecycle.resetToIdle();
               onRestart();
             }}
-            className="flex-1 w-full py-3 bg-gradient-to-r from-[#d9ad3f] to-[#8a6a1f] border-2 border-[#ffe08a] hover:brightness-125 text-[#180a04] font-black text-xs sm:text-sm uppercase rounded-xl transition-all active:scale-95 shadow-lg flex items-center justify-center gap-2"
+            className="w-full py-3.5 bg-gradient-to-r from-[#d9ad3f] to-[#8a6a1f] border-2 border-[#ffe08a] hover:brightness-125 text-[#180a04] font-black text-xs sm:text-sm uppercase rounded-xl transition-all active:scale-95 shadow-lg flex items-center justify-center gap-2 cursor-pointer"
           >
             <RotateCcw size={16} />
-            <span>{isCampaign ? (lang === "pt" ? "Tentar Missão Novamente" : "Retry Mission") : t("playAgain", lang)}</span>
+            <span>{t("playAgain", lang)}</span>
           </button>
-
-          {isCampaign && onOpenMap && (
-            <button
-              onClick={() => {
-                lifecycle.resetToIdle();
-                onOpenMap();
-              }}
-              className="w-full sm:w-auto px-4 py-3 bg-[#1e1017] border border-[#5c4a30] hover:border-[#d9ad3f] text-[#f4c97a] font-bold text-xs uppercase rounded-xl transition-all active:scale-95 flex items-center justify-center gap-1.5"
-            >
-              <Map size={15} />
-              <span>{lang === "pt" ? "Mapa" : "Map"}</span>
-            </button>
-          )}
         </div>
       </div>
     </div>

@@ -60,6 +60,79 @@ interface GameHUDProps {
   onOpenRestartModal: () => void;
 }
 
+// Elegant, space-saving pixel-art floating tooltip for icon-first minimalist HUD
+const HUDTooltip: React.FC<{
+  title: string;
+  badge?: string;
+  badgeColor?: string;
+  desc?: string;
+  costs?: { label: string; icon: string; amount: number; hasEnough: boolean }[];
+  hotkey?: string;
+  position?: "top" | "bottom" | "left" | "right";
+  className?: string;
+}> = ({
+  title,
+  badge,
+  badgeColor = "text-amber-400 bg-amber-950/70 border-amber-600/50",
+  desc,
+  costs,
+  hotkey,
+  position = "top",
+  className = "",
+}) => {
+  const posClasses = {
+    top: "bottom-full mb-2 left-1/2 -translate-x-1/2",
+    bottom: "top-full mt-2 left-1/2 -translate-x-1/2",
+    left: "right-full mr-2 top-1/2 -translate-y-1/2",
+    right: "left-full ml-2 top-1/2 -translate-y-1/2",
+  }[position];
+
+  return (
+    <div
+      className={`pointer-events-none opacity-0 group-hover:opacity-100 group-focus:opacity-100 transition-all duration-150 z-50 absolute ${posClasses} bg-[#0a0508]/98 border-2 border-amber-500/70 p-2.5 rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.95)] backdrop-blur-md min-w-[190px] max-w-[260px] text-left text-xs ${className}`}
+    >
+      <div className="flex items-center justify-between gap-1.5 border-b border-[#5c4a30]/60 pb-1 mb-1.5">
+        <span className="font-serif font-black text-amber-300 text-xs truncate">
+          {title}
+        </span>
+        {badge && (
+          <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded border uppercase font-bold shrink-0 ${badgeColor}`}>
+            {badge}
+          </span>
+        )}
+      </div>
+
+      {desc && (
+        <div className="text-[10px] text-amber-100/85 leading-snug mb-1.5">
+          {desc}
+        </div>
+      )}
+
+      {costs && costs.length > 0 && (
+        <div className="flex items-center flex-wrap gap-2 pt-1 border-t border-white/10 text-[10px] font-mono font-bold">
+          {costs.map((c, i) => (
+            <span
+              key={i}
+              className={`flex items-center gap-0.5 ${
+                c.hasEnough ? "text-amber-300" : "text-rose-400"
+              }`}
+            >
+              <span>{c.icon}</span>
+              <span>{c.amount}</span>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {hotkey && (
+        <div className="mt-1 text-[9px] font-mono text-[#a8926a] text-right">
+          Atalho: <b className="text-amber-300">[{hotkey}]</b>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Small, discreet animated pixel head for each worker profession
 const WorkerHeadIcon: React.FC<{ role: RoleType; isIdle?: boolean }> = ({ role, isIdle }) => {
   const configs: Record<RoleType, { hat: string; plume?: string; trim: string; skin: string }> = {
@@ -227,6 +300,58 @@ export const GameHUD: React.FC<GameHUDProps> = ({
     return () => clearInterval(interval);
   }, []);
 
+  // Keyboard shortcut triggers for fast ergonomic RTS actions
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      if (e.key === "b" || e.key === "B") {
+        setBuildMenuOpen((prev) => !prev);
+        sound.playSfx("click");
+      } else if (e.key >= "1" && e.key <= "9") {
+        const idx = parseInt(e.key, 10) - 1;
+        if (idx >= 0 && idx < BUILDING_ORDER.length) {
+          const bKey = BUILDING_ORDER[idx];
+          const spec = BUILD_SPECS[bKey];
+          const canAfford = Object.entries(spec.cost).every(
+            ([res, cost]) => (engine.resources as any)[res] >= (cost || 0)
+          );
+          if (canAfford) {
+            engine.buildMode = engine.buildMode === bKey ? null : bKey;
+            if (engine.buildMode) {
+              engine.select(null);
+              engine.hover = {
+                x: Math.max(2, Math.min(COLS - 5, Math.floor(engine.camera.x / TS))),
+                y: Math.max(2, Math.min(ROWS - 5, Math.floor(engine.camera.y / TS))),
+              };
+            }
+            sound.playSfx("select");
+            setBuildMenuOpen(false);
+          }
+        }
+      } else if (e.key === "Escape") {
+        if (engine.buildMode) {
+          engine.buildMode = null;
+        } else if (buildMenuOpen) {
+          setBuildMenuOpen(false);
+        } else if (engine.selected) {
+          engine.select(null);
+        }
+      } else if (e.key === "h" || e.key === "H") {
+        engine.hideAllVillagers();
+      } else if (e.key === "j" || e.key === "J") {
+        engine.returnVillagersToWork();
+      } else if (e.key === "g" || e.key === "G") {
+        engine.rallyArmy();
+      } else if (e.key === "v" || e.key === "V") {
+        engine.cycleGameSpeed();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [engine, buildMenuOpen]);
+
   const p = engine.phaseInfo();
   const c = engine.castle();
 
@@ -345,485 +470,253 @@ export const GameHUD: React.FC<GameHUDProps> = ({
   }
 
   return (
-    <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-2 md:p-3 overflow-hidden font-sans select-none z-30">
-      {/* 1. TOP OVERLAY RAIL: Discrete Horizontal Resources (Top-Left) + Centered Wave Pill with Day/Night Orb + Actions (Top-Right) */}
-      <div className="w-full flex flex-wrap items-start justify-between relative pointer-events-none gap-2">
-        {/* Top-Left Column: Horizontal Resource Rail (#trHud) + Subtle Low-Resource Notification */}
-        <div className="flex flex-col items-start gap-1.5 pointer-events-none">
-          <div id="trHud" className="flex flex-wrap items-center gap-1 md:gap-1.5 pointer-events-auto bg-[#060408]/95 border border-[#d9ad3f]/40 p-1 md:p-1.5 rounded-2xl shadow-2xl backdrop-blur-md">
-            {/* Wood */}
-            <button
-              type="button"
-              onClick={() => engine.prioritizeResourceGathering("wood")}
-              className={`relative flex items-center gap-1.5 px-2.5 py-1 rounded-xl transition-all cursor-pointer active:scale-95 shadow-inner ${
-                isWoodLow
-                  ? "bg-[#2b1114]/95 border border-rose-500/90 text-rose-200 shadow-[0_0_12px_rgba(244,63,94,0.45)] animate-pulse"
-                  : "bg-[#1c0f08]/90 border border-amber-900/60 hover:border-amber-400 text-[#fef3c7]"
-              }`}
-              title={
-                isWoodLow
-                  ? lang === "pt"
-                    ? "⚠️ Madeira Crítica! Clique para priorizar coleta"
-                    : "⚠️ Critical Wood! Click to prioritize gathering"
-                  : `${t("wood", lang)} (${lang === "pt" ? "Clique para focar coleta" : "Click to focus gathering"})`
-              }
-            >
-              <Trees size={18} className={`${isWoodLow ? "text-rose-400" : "text-amber-400"} shrink-0 filter drop-shadow`} />
-              <b className={`text-xs md:text-sm font-black font-mono ${isWoodLow ? "text-rose-300" : "text-[#fcd34d]"}`}>
-                {Math.floor(engine.resDisplay.wood)}
-              </b>
-              {isWoodLow && (
-                <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping" />
-              )}
-            </button>
-
-            {/* Stone */}
-            <button
-              type="button"
-              onClick={() => engine.prioritizeResourceGathering("stone")}
-              className={`relative flex items-center gap-1.5 px-2.5 py-1 rounded-xl transition-all cursor-pointer active:scale-95 shadow-inner ${
-                isStoneLow
-                  ? "bg-[#2b1114]/95 border border-rose-500/90 text-rose-200 shadow-[0_0_12px_rgba(244,63,94,0.45)] animate-pulse"
-                  : "bg-[#141820]/90 border border-slate-700/60 hover:border-slate-300 text-[#f8fafc]"
-              }`}
-              title={
-                isStoneLow
-                  ? lang === "pt"
-                    ? "⚠️ Pedra Crítica! Clique para priorizar mineração"
-                    : "⚠️ Critical Stone! Click to prioritize mining"
-                  : `${t("stone", lang)} (${lang === "pt" ? "Clique para focar coleta" : "Click to focus gathering"})`
-              }
-            >
-              <Pickaxe size={18} className={`${isStoneLow ? "text-rose-400" : "text-slate-300"} shrink-0 filter drop-shadow`} />
-              <b className={`text-xs md:text-sm font-black font-mono ${isStoneLow ? "text-rose-300" : "text-[#e2e8f0]"}`}>
-                {Math.floor(engine.resDisplay.stone)}
-              </b>
-              {isStoneLow && (
-                <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping" />
-              )}
-            </button>
-
-            {/* Gold */}
-            <button
-              type="button"
-              onClick={() => engine.prioritizeResourceGathering("gold")}
-              className={`relative flex items-center gap-1.5 px-2.5 py-1 rounded-xl transition-all cursor-pointer active:scale-95 shadow-inner ${
-                isGoldLow
-                  ? "bg-[#2d1215]/95 border border-amber-400/90 text-amber-200 shadow-[0_0_14px_rgba(251,191,36,0.55)] animate-pulse"
-                  : "bg-[#221a08]/90 border border-yellow-700/60 hover:border-yellow-400 text-[#fef08a]"
-              }`}
-              title={
-                isGoldLow
-                  ? lang === "pt"
-                    ? "⚠️ Ouro Crítico! Clique para priorizar mineração de ouro"
-                    : "⚠️ Critical Gold! Click to prioritize gold mining"
-                  : `${t("gold", lang)} (${lang === "pt" ? "Clique para focar coleta" : "Click to focus gathering"})`
-              }
-            >
-              <Coins size={18} className={`${isGoldLow ? "text-amber-300" : "text-yellow-400"} shrink-0 filter drop-shadow`} />
-              <b className={`text-xs md:text-sm font-black font-mono ${isGoldLow ? "text-rose-300" : "text-[#fef08a]"}`}>
-                {Math.floor(engine.resDisplay.gold)}
-              </b>
-              {isGoldLow && (
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
-              )}
-            </button>
-
-            {/* Food */}
-            <button
-              type="button"
-              onClick={() => engine.prioritizeResourceGathering("food")}
-              className={`relative flex items-center gap-1.5 px-2.5 py-1 rounded-xl transition-all cursor-pointer active:scale-95 shadow-inner ${
-                isFoodLow
-                  ? "bg-[#2d1115]/95 border border-rose-500/90 text-rose-200 shadow-[0_0_14px_rgba(244,63,94,0.55)] animate-pulse"
-                  : "bg-[#0f2414]/90 border border-emerald-800/60 hover:border-emerald-400 text-[#bbf7d0]"
-              }`}
-              title={
-                isFoodLow
-                  ? lang === "pt"
-                    ? "⚠️ Comida Crítica! Clique para priorizar fazendas e colheita"
-                    : "⚠️ Critical Food! Click to prioritize farms and harvesting"
-                  : `${t("food", lang)} (${lang === "pt" ? "Clique para focar coleta" : "Click to focus gathering"})`
-              }
-            >
-              <Wheat size={18} className={`${isFoodLow ? "text-rose-400" : "text-emerald-400"} shrink-0 filter drop-shadow`} />
-              <b className={`text-xs md:text-sm font-black font-mono ${isFoodLow ? "text-rose-300" : "text-[#86efac]"}`}>
-                {Math.floor(engine.resDisplay.food)}
-              </b>
-              {isFoodLow && (
-                <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping" />
-              )}
-            </button>
-
-            {/* Crystal */}
-            <div
-              className="flex items-center gap-1.5 px-2.5 py-1 bg-[#0f1d2e]/90 border border-sky-800/60 hover:border-cyan-400 rounded-xl text-[#bae6fd] transition-colors cursor-default shadow-inner"
-              title={t("crystal", lang)}
-            >
-              <Gem size={18} className="text-cyan-400 shrink-0 animate-pulse filter drop-shadow" />
-              <b className="text-xs md:text-sm font-black font-mono text-[#7dd3fc]">
-                {Math.floor(engine.resDisplay.crystal)}
-              </b>
-            </div>
-
-            {/* Pop Cap Chip */}
-            <div
-              className="flex items-center gap-1.5 px-2.5 py-1 bg-[#1a120b]/90 border border-amber-900/60 hover:border-amber-400 rounded-xl text-[#fef3c7] transition-colors cursor-default shadow-inner"
-              title="Capacidade Populacional"
-            >
-              <Home size={18} className="text-amber-400 shrink-0 filter drop-shadow" />
-              <b
-                className={`text-xs md:text-sm font-black font-mono ${
-                  alivePop >= maxPop ? "text-rose-400" : "text-[#fcd34d]"
-                }`}
-              >
-                {alivePop}/{maxPop}
-              </b>
-            </div>
+    <div className="absolute inset-0 pointer-events-none flex flex-col justify-between overflow-hidden font-sans select-none z-30">
+      {/* 1. UNIFIED PROFESSIONAL TOP BAR (Edge-to-edge, ultra-slim RTS header) */}
+      <div className="fixed top-0 inset-x-0 h-9 z-40 bg-[#09070c]/92 border-b border-stone-800/80 backdrop-blur-md px-2.5 md:px-4 flex items-center justify-between pointer-events-auto select-none shadow-md">
+        {/* Left: Compact Inline Resources */}
+        <div className="flex items-center gap-2.5 md:gap-3.5 text-xs font-mono">
+          {/* Wood */}
+          <div
+            className="relative group flex items-center gap-1 cursor-pointer transition-opacity hover:opacity-80"
+            onClick={() => engine.prioritizeResourceGathering("wood")}
+          >
+            <Trees size={14} className={isWoodLow ? "text-rose-400" : "text-amber-400"} />
+            <span className={`font-bold ${isWoodLow ? "text-rose-300 animate-pulse" : "text-amber-100"}`}>
+              {Math.floor(engine.resDisplay.wood)}
+            </span>
+            <HUDTooltip
+              title={lang === "pt" ? "Madeira (Coleta)" : "Wood (Harvest)"}
+              desc={lang === "pt" ? "Clique para priorizar corte de madeira." : "Click to prioritize wood gathering."}
+              position="bottom"
+            />
           </div>
 
-          {/* Subtle Low-Resource Notification Pill */}
-          {lowResourcesList.length > 0 && (
-            <div
-              id="trLowResAlert"
-              className="pointer-events-auto flex flex-wrap items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#18090c]/90 border border-rose-500/50 shadow-[0_0_15px_rgba(244,63,94,0.28)] backdrop-blur-md text-[11px] text-rose-200 animate-in fade-in duration-200"
+          {/* Stone */}
+          <div
+            className="relative group flex items-center gap-1 cursor-pointer transition-opacity hover:opacity-80"
+            onClick={() => engine.prioritizeResourceGathering("stone")}
+          >
+            <Pickaxe size={14} className={isStoneLow ? "text-rose-400" : "text-slate-300"} />
+            <span className={`font-bold ${isStoneLow ? "text-rose-300 animate-pulse" : "text-slate-100"}`}>
+              {Math.floor(engine.resDisplay.stone)}
+            </span>
+            <HUDTooltip
+              title={lang === "pt" ? "Pedra (Mineração)" : "Stone (Mining)"}
+              desc={lang === "pt" ? "Clique para priorizar mineração de pedra." : "Click to prioritize stone mining."}
+              position="bottom"
+            />
+          </div>
+
+          {/* Gold */}
+          <div
+            className="relative group flex items-center gap-1 cursor-pointer transition-opacity hover:opacity-80"
+            onClick={() => engine.prioritizeResourceGathering("gold")}
+          >
+            <Coins size={14} className={isGoldLow ? "text-amber-400" : "text-yellow-400"} />
+            <span className={`font-bold ${isGoldLow ? "text-amber-300 animate-pulse" : "text-yellow-100"}`}>
+              {Math.floor(engine.resDisplay.gold)}
+            </span>
+            <HUDTooltip
+              title={lang === "pt" ? "Ouro (Tesouro)" : "Gold (Treasury)"}
+              desc={lang === "pt" ? "Clique para priorizar extração de ouro." : "Click to prioritize gold mining."}
+              position="bottom"
+            />
+          </div>
+
+          {/* Food */}
+          <div
+            className="relative group flex items-center gap-1 cursor-pointer transition-opacity hover:opacity-80"
+            onClick={() => engine.prioritizeResourceGathering("food")}
+          >
+            <Wheat size={14} className={isFoodLow ? "text-rose-400" : "text-emerald-400"} />
+            <span className={`font-bold ${isFoodLow ? "text-rose-300 animate-pulse" : "text-emerald-100"}`}>
+              {Math.floor(engine.resDisplay.food)}
+            </span>
+            <HUDTooltip
+              title={lang === "pt" ? "Comida (Plantações)" : "Food (Harvest)"}
+              desc={lang === "pt" ? "Clique para priorizar plantações de trigo." : "Click to prioritize farming."}
+              position="bottom"
+            />
+          </div>
+
+          {/* Crystal */}
+          <div className="relative group flex items-center gap-1">
+            <Gem size={14} className="text-cyan-400" />
+            <span className="font-bold text-cyan-200">{Math.floor(engine.resDisplay.crystal)}</span>
+            <HUDTooltip
+              title={lang === "pt" ? "Cristais Ancestrais" : "Ancient Crystals"}
+              desc={lang === "pt" ? "Colete 100 cristais para despertar o Golem Ancestral." : "Collect 100 crystals to awaken Ancient Golem."}
+              position="bottom"
+            />
+          </div>
+
+          {/* Population */}
+          <div className="relative group flex items-center gap-1 border-l border-stone-800/80 pl-2">
+            <Users size={14} className={alivePop >= maxPop ? "text-rose-400" : "text-amber-300"} />
+            <span className={`font-bold ${alivePop >= maxPop ? "text-rose-300" : "text-amber-200"}`}>
+              {alivePop}/{maxPop}
+            </span>
+            <HUDTooltip
+              title={lang === "pt" ? "Capacidade Populacional" : "Population"}
+              desc={lang === "pt" ? "Construa Casas para aumentar o limite (+2 por casa)." : "Build Houses to increase max population (+2 per house)."}
+              position="bottom"
+            />
+          </div>
+        </div>
+
+        {/* Center: Slim Wave & Threat status */}
+        <div className="flex items-center gap-2 text-xs font-mono">
+          <span className="font-bold text-amber-300 font-serif">
+            {t("wave", lang)} {engine.waveNumber}
+          </span>
+          <span className="text-stone-600">·</span>
+          <span className={`font-semibold ${isBossWave ? "text-purple-300 animate-pulse" : p.name === "Wave" ? "text-rose-400 font-bold animate-pulse" : "text-amber-200/90"}`}>
+            {isBossWave ? t("bossPhase", lang) : p.name === "Wave" ? t("wavePhase", lang) : t("buildPhase", lang)}
+          </span>
+          <span className="font-bold text-stone-200 bg-stone-900/90 px-1.5 py-0.2 rounded border border-stone-800">
+            {formatSecs(p.remain)}
+          </span>
+
+          {p.name === "Build" && p.remain > 10 && (
+            <button
+              onClick={() => engine.callWaveEarly()}
+              className="px-1.5 py-0.5 rounded bg-amber-900/60 hover:bg-amber-800 border border-amber-600/60 text-[10px] font-bold text-amber-100 flex items-center gap-1 active:scale-95 transition-all cursor-pointer"
+              title={lang === "pt" ? "Chamar onda agora (+Ouro & +Cristais)" : "Call wave early (+Gold & +Crystals)"}
             >
-              <AlertTriangle size={13} className="text-amber-400 animate-pulse shrink-0" />
-              <span className="font-semibold text-rose-200/95">
-                {lang === "pt" ? "Estoque baixo:" : "Low stock:"}
-              </span>
-              <div className="flex flex-wrap items-center gap-1">
-                {lowResourcesList.map((item) => (
-                  <button
-                    key={item.key}
-                    type="button"
-                    onClick={() => engine.prioritizeResourceGathering(item.key)}
-                    className={`px-1.5 py-0.5 rounded-md border text-[10px] font-mono font-bold hover:brightness-125 active:scale-95 transition-all cursor-pointer ${item.color}`}
-                    title={
-                      lang === "pt"
-                        ? `Clique para priorizar coleta de ${item.label}`
-                        : `Click to prioritize ${item.label} gathering`
-                    }
-                  >
-                    {item.label} ⚡
-                  </button>
-                ))}
-              </div>
-            </div>
+              <Swords size={11} className="text-amber-300" />
+              <span>{lang === "pt" ? "Chamar" : "Call"}</span>
+            </button>
+          )}
+
+          {c && c.hp < c.maxHp && (
+            <button
+              onClick={() => engine.centerOnCastle()}
+              className={`px-1.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 ml-0.5 ${
+                c.hp < c.maxHp * 0.4
+                  ? "bg-rose-950/90 border border-rose-500 text-rose-300 animate-pulse"
+                  : "bg-amber-950/80 border border-amber-600/50 text-amber-200"
+              }`}
+              title={lang === "pt" ? "Centralizar no Castelo danificado" : "Center on damaged Castle"}
+            >
+              <Castle size={11} />
+              <span>{Math.ceil(c.hp)}/{c.maxHp} HP</span>
+            </button>
           )}
         </div>
 
-        {/* Centered Wave & Threat Level Indicator with Day/Night Orb (#trWavePill) */}
-        <div
-          id="trWavePill"
-          className="pointer-events-auto flex items-center gap-3 bg-[#060408]/95 border border-[#d9ad3f]/50 px-3.5 py-1.5 rounded-2xl shadow-2xl backdrop-blur-md cursor-default shrink-0"
-        >
-          {/* Day / Night Celestial Rotating Orb (#cycleOrb) */}
-          <div
-            id="cycleOrb"
-            className={`cycleOrb relative cursor-pointer active:scale-95 transition-transform shrink-0 ${
-              isBossWave ? "bot" : ""
-            }`}
-            style={{ transform: `rotate(${orbRotation}deg)` }}
-            title={
-              p.name === "Build"
-                ? t("dayTooltip", lang)
-                : isBossWave
-                ? t("bossTooltip", lang)
-                : t("nightTooltip", lang)
-            }
-          >
-            <div className="moonSide" />
-            <div className="sunSide" />
+        {/* Right: Sleek Inline Action Icons */}
+        <div className="flex items-center gap-0.5 text-xs">
+          {/* Touch Mode */}
+          <div className="relative group">
+            <button
+              onClick={() => {
+                engine.touchMode = engine.touchMode === "pan" ? "box" : "pan";
+                sound.playSfx("click");
+              }}
+              className={`w-7 h-7 rounded flex items-center justify-center transition-all ${
+                engine.touchMode === "box" ? "bg-amber-500/30 text-amber-200" : "text-stone-400 hover:text-stone-200"
+              }`}
+            >
+              {engine.touchMode === "pan" ? <Hand size={14} /> : <BoxSelect size={14} />}
+            </button>
+            <HUDTooltip
+              title={engine.touchMode === "pan" ? "Navegar Câmera" : "Seleção em Caixa"}
+              position="bottom"
+            />
           </div>
 
-          <div className="flex flex-col items-center gap-0.5">
-            <div className="flex items-center gap-2.5">
-              <span className="text-xs font-black font-serif uppercase tracking-widest text-[#d9ad3f]">
-                {t("wave", lang)} {engine.waveNumber}
-              </span>
-              <div className="h-3 w-[1px] bg-[#5c4a30]" />
-              <span
-                className={`text-[11px] font-bold font-mono px-2 py-0.5 rounded-full ${
-                  isBossWave
-                    ? "bg-purple-950/80 text-purple-300 border border-purple-500 animate-pulse"
-                    : p.name === "Wave"
-                    ? "bg-red-950/80 text-red-300 border border-red-500 animate-pulse"
-                    : "bg-amber-950/80 text-amber-300 border border-amber-500/60"
-                }`}
-              >
-                {isBossWave
-                  ? t("bossPhase", lang)
-                  : p.name === "Wave"
-                  ? t("wavePhase", lang)
-                  : t("buildPhase", lang)}
-              </span>
-              <div className="h-3 w-[1px] bg-[#5c4a30]" />
-              <span className="text-sm font-black font-mono tabular-nums text-[#f2c95a]">
-                {formatSecs(p.remain)}
-              </span>
-              {p.name === "Build" && p.remain > 10 && (
-                <button
-                  type="button"
-                  onClick={() => engine.callWaveEarly()}
-                  className="ml-1 px-2 py-0.5 rounded-lg bg-gradient-to-r from-amber-700/90 to-red-800/90 hover:brightness-125 border border-amber-400/80 text-[10px] font-mono font-bold text-amber-100 shadow active:scale-95 transition-all cursor-pointer flex items-center gap-1"
-                  title={
-                    lang === "pt"
-                      ? "Chamar a onda agora e receber Bônus de Coragem (+Ouro e +Cristais)!"
-                      : "Call the wave early for a Courage Bonus (+Gold & +Crystals)!"
-                  }
-                >
-                  <Swords size={11} className="text-amber-300" />
-                  <span>{lang === "pt" ? "Chamar Onda" : "Call Wave"}</span>
-                </button>
-              )}
-            </div>
-
-            <div className="text-[10px] text-[#a8926a] font-mono flex items-center gap-2">
-              <span>
-                {t("tierLabel", lang)} {c ? c.tier : 1}
-              </span>
-              <span>·</span>
-              <span>
-                {t("threat", lang)}: <b className="text-amber-300">{threatLabel}</b>
-              </span>
-              {activeBuilders > 1 && (
-                <>
-                  <span>·</span>
-                  <span className="text-emerald-400 font-bold">
-                    ⚡ {activeBuilders}x {lang === "pt" ? "Velocidade Obra" : "Build Speed"}
-                  </span>
-                </>
-              )}
-              {aliveEnemies > 0 && (p.name === "Wave" || isBossWave) && (
-                <>
-                  <span>·</span>
-                  <span className="text-red-400 font-bold flex items-center gap-1 animate-pulse">
-                    👾 {aliveEnemies} {lang === "pt" ? "restantes" : "left"}
-                  </span>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Castle Health Warning Alert & Quick Repair All */}
-        <div className="flex flex-wrap items-center gap-1.5 pointer-events-none">
-          {c && c.hp < c.maxHp && (
+          {/* Center Castle */}
+          <div className="relative group">
             <button
               onClick={() => {
                 engine.centerOnCastle();
                 sound.playSfx("select");
-                haptic("light");
               }}
-              className={`pointer-events-auto px-2.5 py-1 rounded-xl border text-[10px] font-mono font-bold flex items-center gap-1.5 shadow-lg active:scale-95 transition-all ${
-                c.hp < c.maxHp * 0.4
-                  ? "bg-red-950/95 border-red-500 text-red-200 animate-pulse shadow-[0_0_12px_rgba(239,68,68,0.6)]"
-                  : "bg-amber-950/90 border-amber-500/70 text-amber-200"
-              }`}
-              title={lang === "pt" ? "Centralizar no Castelo" : "Center Castle"}
+              className="w-7 h-7 rounded flex items-center justify-center text-stone-400 hover:text-amber-300 transition-all"
             >
-              <Castle size={13} className={c.hp < c.maxHp * 0.4 ? "text-red-400 animate-bounce" : "text-amber-400"} />
-              <span>
-                {lang === "pt" ? "Castelo: " : "Castle: "}
-                <b>{Math.ceil(c.hp)}/{c.maxHp} HP</b>
-              </span>
+              <Crosshair size={14} />
             </button>
-          )}
+            <HUDTooltip
+              title={lang === "pt" ? "Focar no Castelo (Espaço)" : "Center Castle (Space)"}
+              position="bottom"
+            />
+          </div>
 
-          {damagedBuildingsCount > 0 && (
+          {/* Speed Multiplier */}
+          <div className="relative group">
             <button
-              type="button"
-              onClick={() => engine.repairAllDamagedBuildings()}
-              className="pointer-events-auto px-2.5 py-1 rounded-xl bg-emerald-950/90 hover:bg-emerald-900 border border-emerald-400/70 text-emerald-200 text-[10px] font-mono font-bold flex items-center gap-1.5 shadow-lg active:scale-95 transition-all cursor-pointer"
-              title={
-                lang === "pt"
-                  ? `Enviar construtores para reparar ${damagedBuildingsCount} estrutura(s) danificada(s)`
-                  : `Send builders to repair ${damagedBuildingsCount} damaged structure(s)`
-              }
+              onClick={() => engine.cycleGameSpeed()}
+              className={`px-1.5 h-6 rounded flex items-center gap-0.5 font-bold text-[10px] ${
+                engine.speed > 1 ? "bg-amber-500/30 text-amber-200" : "text-stone-400 hover:text-stone-200"
+              }`}
             >
-              <Wrench size={12} className="text-emerald-300" />
-              <span>
-                {lang === "pt"
-                  ? `Reparar Tudo (${damagedBuildingsCount})`
-                  : `Repair All (${damagedBuildingsCount})`}
-              </span>
+              <FastForward size={12} />
+              <span>{engine.speed}x</span>
             </button>
-          )}
-        </div>
+            <HUDTooltip
+              title={lang === "pt" ? `Velocidade: ${engine.speed}x (V)` : `Speed: ${engine.speed}x (V)`}
+              position="bottom"
+            />
+          </div>
 
-        {/* Top-Right Control Toolbar (#trActions) */}
-        <div id="trActions" className="pointer-events-auto flex items-center gap-1 bg-[#060408]/95 border border-[#d9ad3f]/40 p-1 md:p-1.5 rounded-2xl shadow-2xl backdrop-blur-md shrink-0">
-          {/* Touch Mode Pan / Box Selection Toggle */}
-          <button
-            onClick={() => {
-              engine.touchMode = engine.touchMode === "pan" ? "box" : "pan";
-              sound.playSfx("click");
-            }}
-            className={`p-2 rounded-xl border transition-all active:scale-95 ${
-              engine.touchMode === "box"
-                ? "bg-amber-500/30 border-amber-400 text-amber-200 shadow-[0_0_10px_rgba(251,191,36,0.5)]"
-                : "bg-transparent border-transparent hover:bg-white/10 text-[#cdc3ac] hover:text-[#f2c95a]"
-            }`}
-            title={
-              engine.touchMode === "pan"
-                ? lang === "pt"
-                  ? "Modo Toque: Navegar Tela (Toque para Seleção em Caixa)"
-                  : "Touch: Pan Camera (Tap for Box Select)"
-                : lang === "pt"
-                ? "Modo Toque: Seleção em Caixa (Toque para Navegar)"
-                : "Touch: Box Select (Tap for Pan Camera)"
-            }
-          >
-            {engine.touchMode === "pan" ? <Hand size={18} /> : <BoxSelect size={18} />}
-          </button>
+          {/* Pause */}
+          <div className="relative group">
+            <button
+              onClick={() => {
+                engine.paused = !engine.paused;
+                sound.playSfx("click");
+              }}
+              className="w-7 h-7 rounded flex items-center justify-center text-stone-400 hover:text-amber-300 transition-all"
+            >
+              {engine.paused ? <Play size={14} className="text-emerald-400" /> : <Pause size={14} />}
+            </button>
+            <HUDTooltip title={engine.paused ? "Continuar" : "Pausar"} position="bottom" />
+          </div>
 
-          {/* Quick Tutorial Modal Trigger */}
-          <button
-            onClick={onOpenTutorial}
-            className="p-2 hover:bg-white/10 text-amber-300 rounded-xl transition-all active:scale-95"
-            title={lang === "pt" ? "Abrir Guia & Tutorial" : "Open Tutorial Slides"}
-          >
-            <BookOpen size={18} />
-          </button>
+          {/* Audio */}
+          <div className="relative group">
+            <button
+              onClick={() => sound.setMuted(!sound.muted)}
+              className="w-7 h-7 rounded flex items-center justify-center text-stone-400 hover:text-amber-300 transition-all"
+            >
+              {sound.muted ? <VolumeX size={14} className="text-rose-400" /> : <Volume2 size={14} />}
+            </button>
+            <HUDTooltip title={sound.muted ? "Ativar Áudio" : "Silenciar Áudio"} position="bottom" />
+          </div>
 
-          {/* Center on Castle */}
-          <button
-            onClick={() => {
-              engine.centerOnCastle();
-              sound.playSfx("select");
-            }}
-            className="p-2 hover:bg-white/10 text-cyan-300 rounded-xl transition-all active:scale-95"
-            title={lang === "pt" ? "Centralizar no Castelo" : "Center Camera on Castle"}
-          >
-            <Crosshair size={18} />
-          </button>
-
-          {/* Zoom In */}
-          <button
-            onClick={() => {
-              engine.camera.zoom = Math.min(2.5, engine.camera.zoom * 1.2);
-            }}
-            className="p-2 hover:bg-white/10 text-[#f2c95a] rounded-xl transition-all active:scale-95 hidden sm:flex"
-            title="Zoom In (+)"
-          >
-            <Plus size={18} />
-          </button>
-
-          {/* Zoom Out */}
-          <button
-            onClick={() => {
-              engine.camera.zoom = Math.max(0.4, engine.camera.zoom * 0.83);
-            }}
-            className="p-2 hover:bg-white/10 text-[#f2c95a] rounded-xl transition-all active:scale-95 hidden sm:flex"
-            title="Zoom Out (-)"
-          >
-            <Minus size={18} />
-          </button>
-
-          {/* Game Speed Multiplier (1x / 1.5x / 2x) */}
-          <button
-            onClick={() => engine.cycleGameSpeed()}
-            className={`px-2 py-1.5 rounded-xl border text-xs font-mono font-black transition-all active:scale-95 flex items-center gap-1 ${
-              engine.speed > 1
-                ? "bg-amber-500/30 border-amber-400 text-amber-200 shadow-[0_0_10px_rgba(251,191,36,0.45)]"
-                : "bg-transparent border-transparent hover:bg-white/10 text-[#f2c95a]"
-            }`}
-            title={
-              lang === "pt"
-                ? `Velocidade do Jogo: ${engine.speed}x (Clique ou tecle V para alternar 1x / 1.5x / 2x)`
-                : `Game Speed: ${engine.speed}x (Click or press V to cycle 1x / 1.5x / 2x)`
-            }
-          >
-            <FastForward size={15} />
-            <span>{engine.speed}x</span>
-          </button>
-
-          {/* Pause / Resume */}
-          <button
-            onClick={() => {
-              engine.paused = !engine.paused;
-              sound.playSfx("click");
-            }}
-            className="p-2 hover:bg-white/10 text-[#f2c95a] rounded-xl transition-all active:scale-95"
-            title={engine.paused ? t("resume", lang) : t("pause", lang)}
-          >
-            {engine.paused ? (
-              <Play size={18} className="text-emerald-400" />
-            ) : (
-              <Pause size={18} />
-            )}
-          </button>
-
-          {/* Sound & Meditative Ambient Mute / Unmute */}
-          <button
-            onClick={() => sound.setMuted(!sound.muted)}
-            className={`p-2 rounded-xl transition-all active:scale-95 flex items-center gap-1 ${
-              sound.muted
-                ? "hover:bg-red-950/40 text-red-400"
-                : "hover:bg-amber-500/20 text-[#f2c95a]"
-            }`}
-            title={
-              lang === "pt"
-                ? sound.muted
-                  ? "Ativar Ambiente Meditativo e Efeitos Sonoros"
-                  : "Ambiente Meditativo: Ativo (Clique para silenciar)"
-                : sound.muted
-                ? "Unmute Meditative Ambient & Sound Effects"
-                : "Meditative Ambient: Active (Click to mute)"
-            }
-          >
-            {sound.muted ? (
-              <VolumeX size={18} className="text-red-400" />
-            ) : (
-              <div className="flex items-center gap-0.5">
-                <Music size={15} className="text-amber-300 animate-pulse" />
-                <Volume2 size={16} />
-              </div>
-            )}
-          </button>
-
-          {/* Download Standalone Offline HTML */}
-          <button
-            onClick={() => downloadOfflineGame("tiny-realm.html")}
-            className="p-2 hover:bg-emerald-500/20 text-emerald-300 rounded-xl transition-all active:scale-95"
-            title={
-              lang === "pt"
-                ? "Baixar jogo completo em HTML Offline (tiny-realm.html)"
-                : "Download standalone Offline HTML game (tiny-realm.html)"
-            }
-          >
-            <Download size={18} />
-          </button>
+          {/* Help / Codex */}
+          <div className="relative group">
+            <button
+              onClick={onOpenTutorial}
+              className="w-7 h-7 rounded flex items-center justify-center text-stone-400 hover:text-amber-300 transition-all"
+            >
+              <BookOpen size={14} />
+            </button>
+            <HUDTooltip title={lang === "pt" ? "Guia do Jogo" : "Game Guide"} position="bottom" />
+          </div>
 
           {/* Restart */}
-          <button
-            onClick={onOpenRestartModal}
-            className="p-2 hover:bg-white/10 text-[#f2c95a] rounded-xl transition-all active:scale-95"
-            title={t("restart", lang)}
-          >
-            <RotateCcw size={18} />
-          </button>
+          <div className="relative group">
+            <button
+              onClick={onOpenRestartModal}
+              className="w-7 h-7 rounded flex items-center justify-center text-stone-400 hover:text-rose-300 transition-all"
+            >
+              <RotateCcw size={14} />
+            </button>
+            <HUDTooltip title={lang === "pt" ? "Reiniciar" : "Restart"} position="bottom" />
+          </div>
 
-          {/* Language Toggle */}
-          <div className="flex gap-0.5 bg-[#140b10] border border-[#d9ad3f]/40 rounded-xl p-0.5 ml-0.5">
+          {/* Language */}
+          <div className="flex border border-stone-800 rounded ml-1 text-[9px] font-mono font-bold overflow-hidden">
             <button
               onClick={() => onSetLang("en")}
-              className={`px-2 py-1 text-xs font-mono font-bold rounded-lg transition-all ${
-                lang === "en"
-                  ? "bg-[#d9ad3f]/40 text-[#f2c95a] font-black shadow"
-                  : "text-[#cdc3ac] hover:text-[#f2c95a]"
-              }`}
+              className={`px-1 py-0.5 ${lang === "en" ? "bg-amber-500/30 text-amber-200" : "text-stone-400"}`}
             >
               EN
             </button>
             <button
               onClick={() => onSetLang("pt")}
-              className={`px-2 py-1 text-xs font-mono font-bold rounded-lg transition-all ${
-                lang === "pt"
-                  ? "bg-[#d9ad3f]/40 text-[#f2c95a] font-black shadow"
-                  : "text-[#cdc3ac] hover:text-[#f2c95a]"
-              }`}
+              className={`px-1 py-0.5 ${lang === "pt" ? "bg-amber-500/30 text-amber-200" : "text-stone-400"}`}
             >
               PT
             </button>
@@ -831,10 +724,29 @@ export const GameHUD: React.FC<GameHUDProps> = ({
         </div>
       </div>
 
-      {/* 2. MIDDLE AREA: Selected Entity / Squad / Hero / Building Inspection Card */}
-      <div className="w-full flex items-center justify-between pointer-events-none relative my-auto">
-        {/* Left Space: Selected Entity Inspector Card (#trSel) */}
-        <div className="pointer-events-auto max-w-[320px]">
+      {/* 2. DISCREET NOTIFICATION TOAST & COMBOS (Top Center, below header) */}
+      <div className="fixed top-11 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center pointer-events-none gap-1">
+        {engine.banner.time > 0 && (
+          <div
+            className="px-3 py-1 rounded-lg bg-[#0b080f]/95 border shadow-xl backdrop-blur-md text-xs font-semibold text-center animate-in fade-in slide-in-from-top-2 duration-150"
+            style={{ borderColor: `${engine.banner.color}80`, color: engine.banner.color }}
+          >
+            {engine.banner.text}
+          </div>
+        )}
+
+        {engine.combo.time > 0 && (
+          <div
+            className="text-lg md:text-xl font-black italic drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] animate-bounce font-serif"
+            style={{ color: engine.combo.color }}
+          >
+            {engine.combo.text}
+          </div>
+        )}
+      </div>
+
+      {/* 3. DOCKED BOTTOM-LEFT SELECTION INSPECTOR (#trSel) */}
+      <div className="fixed bottom-14 left-3 z-30 pointer-events-auto max-w-[210px] md:max-w-[230px]">
           {/* SQUAD MULTI-SELECTION */}
           {selectedSquad.length > 0 ? (
             <div
@@ -1162,95 +1074,132 @@ export const GameHUD: React.FC<GameHUDProps> = ({
               {/* Contextual Actions for Selected Building */}
               {selectedBuilding.type === "townhall" && (
                 <div className="flex flex-col gap-1.5">
-                  <div className="text-[10px] font-bold text-[#ffd56b] uppercase tracking-wide">
-                    {t("recruitWorkers", lang)}
+                  <div className="flex items-center justify-between text-[10px] font-bold text-[#ffd56b] uppercase tracking-wide">
+                    <span>{t("recruitWorkers", lang)}</span>
+                    <span className="font-mono text-[9px] text-[#a8d4ff]">{alivePop}/{maxPop} 👥</span>
                   </div>
 
-                  {/* Recruitment Grid for Civilian Roles */}
-                  <div className="grid grid-cols-2 gap-1 max-h-[140px] overflow-y-auto pr-0.5">
+                  {/* Minimalist 3x2 Icon Grid for Civilian Roles */}
+                  <div className="grid grid-cols-3 gap-1">
                     {(
                       [
-                        "builder",
-                        "woodcutter",
-                        "stoneMiner",
-                        "goldMiner",
-                        "farmer",
-                        "scout",
+                        { role: "builder", key: "1" },
+                        { role: "woodcutter", key: "2" },
+                        { role: "stoneMiner", key: "3" },
+                        { role: "goldMiner", key: "4" },
+                        { role: "farmer", key: "5" },
+                        { role: "scout", key: "6" },
                       ] as const
-                    ).map((r) => {
+                    ).map(({ role: r }) => {
                       const conf = BALANCE.roles[r];
                       const canAfford =
                         engine.resources.wood >= (conf.cost.wood || 0) &&
                         engine.resources.food >= (conf.cost.food || 0) &&
                         engine.aliveUnits().length < engine.popCap();
                       return (
-                        <button
-                          key={r}
-                          disabled={!canAfford}
-                          onClick={() => engine.recruitRole(r)}
-                          className="btn-rpg p-1.5 bg-[#1e1511] hover:bg-[#2d1f19] border border-[#d9ad3f]/40 hover:border-[#ffd56b] disabled:opacity-40 text-left rounded-lg text-[10px] flex flex-col justify-between transition-all active:scale-95"
-                        >
-                          <div className="flex items-center gap-1 text-[#f2c95a] font-bold">
-                            <span>{conf.icon}</span>
-                            <span className="truncate">{conf.label}</span>
-                          </div>
-                          <div className="text-[9px] font-mono text-[#a8d4ff] mt-0.5">
-                            {conf.cost.wood ? `${conf.cost.wood}🪵 ` : ""}
-                            {conf.cost.food ? `${conf.cost.food}🌾` : ""}
-                          </div>
-                        </button>
+                        <div key={r} className="relative group">
+                          <button
+                            type="button"
+                            disabled={!canAfford}
+                            onClick={() => engine.recruitRole(r)}
+                            className="btn-rpg w-full h-11 p-1 bg-[#1a110c] hover:bg-[#2d1f19] border border-[#d9ad3f]/40 hover:border-[#ffd56b] disabled:opacity-35 rounded-xl text-center flex flex-col items-center justify-between transition-all active:scale-95 shadow cursor-pointer"
+                          >
+                            <WorkerHeadIcon role={r} />
+                            <div className="text-[8px] font-mono font-bold text-[#ffd56b] leading-none truncate max-w-full">
+                              {conf.cost.wood ? `${conf.cost.wood}🪵` : ""}{conf.cost.food ? `${conf.cost.food}🌾` : ""}
+                            </div>
+                          </button>
+
+                          <HUDTooltip
+                            title={conf.label}
+                            badge={lang === "pt" ? "Trabalhador" : "Worker"}
+                            desc={
+                              r === "builder"
+                                ? (lang === "pt" ? "Constrói novas estruturas e repara edifícios danificados." : "Erects new structures and repairs damage.")
+                                : r === "woodcutter"
+                                ? (lang === "pt" ? "Derruba árvores para coletar madeira para o reino." : "Chops trees for kingdom wood.")
+                                : r === "stoneMiner"
+                                ? (lang === "pt" ? "Minera pedreiras para coletar blocos de pedra." : "Mines stone deposits.")
+                                : r === "goldMiner"
+                                ? (lang === "pt" ? "Extrai veios de ouro para o tesouro real." : "Mines rich gold veins.")
+                                : r === "farmer"
+                                ? (lang === "pt" ? "Cultiva trigo para alimentar cidadãos e tropas." : "Harvests recurring food supply.")
+                                : (lang === "pt" ? "Patrulha velozmente o mapa e revela a névoa de guerra." : "Patrols realm and maps out unexplored areas.")
+                            }
+                            costs={[
+                              ...(conf.cost.wood ? [{ label: lang === "pt" ? "Madeira" : "Wood", icon: "🪵", amount: conf.cost.wood, hasEnough: engine.resources.wood >= conf.cost.wood }] : []),
+                              ...(conf.cost.food ? [{ label: lang === "pt" ? "Comida" : "Food", icon: "🌾", amount: conf.cost.food, hasEnough: engine.resources.food >= conf.cost.food }] : []),
+                            ]}
+                            position="right"
+                          />
+                        </div>
                       );
                     })}
                   </div>
 
                   {/* Town Bell: Shelter / Return to Work */}
-                  <div className="flex gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => engine.hideAllVillagers()}
-                      className="btn-rpg flex-1 py-1.5 px-2 bg-[#2a1810] hover:bg-[#3d2317] border border-amber-500/60 text-amber-200 rounded-xl font-bold text-[10px] flex items-center justify-center gap-1 shadow active:scale-95"
-                      title={lang === "pt" ? "Tocar sino para abrigar aldeões na Câmara (Atalho: H)" : "Ring bell to shelter villagers in Town Hall (Hotkey: H)"}
-                    >
-                      <Bell size={12} className="text-amber-400" />
-                      <span>{lang === "pt" ? "Abrigar (H)" : "Shelter (H)"}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => engine.returnVillagersToWork()}
-                      className={`btn-rpg flex-1 py-1.5 px-2 border rounded-xl font-bold text-[10px] flex items-center justify-center gap-1 shadow active:scale-95 ${
-                        shelteredUnitsCount > 0
-                          ? "bg-emerald-900/90 hover:bg-emerald-800 border-emerald-400 text-emerald-100 animate-pulse"
-                          : "bg-[#14261c] hover:bg-[#1d3829] border-emerald-500/50 text-emerald-200"
-                      }`}
-                      title={lang === "pt" ? "Enviar aldeões de volta ao trabalho (Atalho: J)" : "Send villagers back to work (Hotkey: J)"}
-                    >
-                      <Play size={11} className="text-emerald-300" />
-                      <span>
-                        {lang === "pt"
-                          ? `Voltar (${shelteredUnitsCount > 0 ? shelteredUnitsCount : "J"})`
-                          : `Work (${shelteredUnitsCount > 0 ? shelteredUnitsCount : "J"})`}
-                      </span>
-                    </button>
+                  <div className="grid grid-cols-2 gap-1 mt-0.5">
+                    <div className="relative group">
+                      <button
+                        type="button"
+                        onClick={() => engine.hideAllVillagers()}
+                        className="btn-rpg w-full py-1.5 px-1 bg-[#2a1810] hover:bg-[#3d2317] border border-amber-500/60 text-amber-200 rounded-xl font-bold text-[10px] flex items-center justify-center gap-1 shadow active:scale-95"
+                      >
+                        <Bell size={12} className="text-amber-400" />
+                        <span>{lang === "pt" ? "Abrigar (H)" : "Shelter (H)"}</span>
+                      </button>
+                      <HUDTooltip
+                        title={lang === "pt" ? "Sino da Cidade: Abrigar (H)" : "Town Bell: Shelter (H)"}
+                        desc={lang === "pt" ? "Toca o sino de emergência para todos os aldeões se protegerem dentro do Castelo." : "Rings emergency bell to shelter all villagers inside the Keep."}
+                        hotkey="H"
+                        position="right"
+                      />
+                    </div>
+
+                    <div className="relative group">
+                      <button
+                        type="button"
+                        onClick={() => engine.returnVillagersToWork()}
+                        className={`btn-rpg w-full py-1.5 px-1 border rounded-xl font-bold text-[10px] flex items-center justify-center gap-1 shadow active:scale-95 ${
+                          shelteredUnitsCount > 0
+                            ? "bg-emerald-900/90 hover:bg-emerald-800 border-emerald-400 text-emerald-100 animate-pulse"
+                            : "bg-[#14261c] hover:bg-[#1d3829] border-emerald-500/50 text-emerald-200"
+                        }`}
+                      >
+                        <Play size={11} className="text-emerald-300" />
+                        <span>
+                          {lang === "pt"
+                            ? `Voltar (${shelteredUnitsCount > 0 ? shelteredUnitsCount : "J"})`
+                            : `Work (${shelteredUnitsCount > 0 ? shelteredUnitsCount : "J"})`}
+                        </span>
+                      </button>
+                      <HUDTooltip
+                        title={lang === "pt" ? "Retornar ao Trabalho (J)" : "Return to Work (J)"}
+                        desc={lang === "pt" ? "Envia todos os aldeões abrigados de volta aos seus postos e coletas." : "Dispatches all sheltered workers back to their tasks."}
+                        hotkey="J"
+                        position="right"
+                      />
+                    </div>
                   </div>
 
                   {/* Fortify Upgrade Button & Kingdom Tier Status */}
-                  <div className="flex items-center justify-between px-2 py-1 rounded-lg bg-[#160f0c] border border-[#d9ad3f]/30 text-[10px] font-mono text-amber-200">
+                  <div className="flex items-center justify-between px-2 py-1 rounded-lg bg-[#140b08] border border-[#d9ad3f]/30 text-[10px] font-mono text-amber-200">
                     <span>
-                      🏰 {lang === "pt" ? `Nível ${selectedBuilding.tier}/3` : `Tier ${selectedBuilding.tier}/3`} ({BALANCE.townHall[selectedBuilding.tier as 1 | 2 | 3]?.name})
+                      🏰 Lv.{selectedBuilding.tier}/3 ({BALANCE.townHall[selectedBuilding.tier as 1 | 2 | 3]?.name})
                     </span>
                     <span className="text-emerald-300 font-bold">
                       {selectedBuilding.tier === 1
-                        ? (lang === "pt" ? "Base" : "Base")
+                        ? "Base"
                         : selectedBuilding.tier === 2
-                        ? (lang === "pt" ? "+15% Coleta/Dano" : "+15% Yield/Dmg")
-                        : (lang === "pt" ? "+30% Coleta/Dano" : "+30% Yield/Dmg")}
+                        ? "+15% Bônus"
+                        : "+30% Bônus"}
                     </span>
                   </div>
 
                   {selectedBuilding.upgrading && (
                     <div className="w-full bg-black/70 border border-amber-400/50 rounded-xl p-1.5 flex flex-col gap-1">
                       <div className="flex items-center justify-between text-[10px] font-mono text-amber-300 font-bold">
-                        <span>🔨 {lang === "pt" ? "Fortificando Castelo..." : "Fortifying Keep..."}</span>
+                        <span>🔨 {lang === "pt" ? "Fortificando..." : "Fortifying..."}</span>
                         <span>{Math.min(100, Math.round((selectedBuilding.progress / Math.max(1, selectedBuilding.buildTime)) * 100))}%</span>
                       </div>
                       <div className="w-full h-1.5 bg-black rounded-full overflow-hidden">
@@ -1270,18 +1219,33 @@ export const GameHUD: React.FC<GameHUDProps> = ({
                       engine.resources.stone >= (upgCost.stone || 0) &&
                       engine.resources.gold >= (upgCost.gold || 0);
                     return (
-                      <button
-                        disabled={!canFortify}
-                        onClick={() => engine.fortifyTownHall()}
-                        className="btn-rpg px-2.5 py-1.5 bg-gradient-to-r from-[#d9ad3f] to-[#8a6a1f] border border-[#ffe08a] hover:brightness-125 disabled:opacity-40 text-[#180a04] text-xs font-black rounded-xl shadow flex items-center justify-between active:scale-95"
-                      >
-                        <span>
-                          🏰 {t("fortify", lang)} Lv.{nextTier}
-                        </span>
-                        <span className="font-mono text-[10px]">
-                          {upgCost.wood}🪵 {upgCost.stone}🪨 {upgCost.gold}💰
-                        </span>
-                      </button>
+                      <div className="relative group">
+                        <button
+                          disabled={!canFortify}
+                          onClick={() => engine.fortifyTownHall()}
+                          className="btn-rpg w-full px-2 py-1.5 bg-gradient-to-r from-[#d9ad3f] to-[#8a6a1f] border border-[#ffe08a] hover:brightness-125 disabled:opacity-40 text-[#180a04] text-xs font-black rounded-xl shadow flex items-center justify-between active:scale-95"
+                        >
+                          <span>🏰 Lv.{nextTier}</span>
+                          <span className="font-mono text-[9px]">
+                            {upgCost.wood}🪵 {upgCost.stone}🪨 {upgCost.gold}💰
+                          </span>
+                        </button>
+                        <HUDTooltip
+                          title={lang === "pt" ? `Fortificar Castelo (Nível ${nextTier})` : `Fortify Castle (Tier ${nextTier})`}
+                          badge={lang === "pt" ? "Evolução" : "Upgrade"}
+                          desc={
+                            lang === "pt"
+                              ? `Aumenta a vida máxima do castelo e concede bônus de ${nextTier === 2 ? "+15%" : "+30%"} na velocidade de coleta e dano de todas as tropas.`
+                              : `Boosts Castle max HP and grants ${nextTier === 2 ? "+15%" : "+30%"} resource yield and attack damage to all units.`
+                          }
+                          costs={[
+                            { label: "Wood", icon: "🪵", amount: upgCost.wood, hasEnough: engine.resources.wood >= upgCost.wood },
+                            { label: "Stone", icon: "🪨", amount: upgCost.stone, hasEnough: engine.resources.stone >= upgCost.stone },
+                            { label: "Gold", icon: "💰", amount: upgCost.gold, hasEnough: engine.resources.gold >= upgCost.gold },
+                          ]}
+                          position="right"
+                        />
+                      </div>
                     );
                   })()}
                 </div>
@@ -1289,55 +1253,108 @@ export const GameHUD: React.FC<GameHUDProps> = ({
 
               {selectedBuilding.type === "barracks" && (
                 <div className="flex flex-col gap-1.5">
-                  <div className="flex gap-1.5">
-                    <button
-                      disabled={
-                        engine.resources.gold < 10 ||
-                        engine.resources.food < 30 ||
-                        engine.aliveUnits().length >= engine.popCap()
-                      }
-                      onClick={() => engine.trainFromBarracks(selectedBuilding, "warrior")}
-                      className="btn-rpg flex-1 py-1.5 bg-[#451218] border border-[#f43f5e] hover:brightness-125 disabled:opacity-40 text-red-200 text-[11px] font-bold rounded-xl flex flex-col items-center"
-                    >
-                      <span>⚔ {t("trainWarrior", lang)}</span>
-                      <span className="text-[9px] text-amber-300 font-mono">10💰 30🌾</span>
-                    </button>
-                    <button
-                      disabled={
-                        engine.resources.gold < 16 ||
-                        engine.resources.food < 22 ||
-                        engine.aliveUnits().length >= engine.popCap()
-                      }
-                      onClick={() => engine.trainFromBarracks(selectedBuilding, "javelin")}
-                      className="btn-rpg flex-1 py-1.5 bg-[#172554] border border-[#60a5fa] hover:brightness-125 disabled:opacity-40 text-blue-200 text-[11px] font-bold rounded-xl flex flex-col items-center"
-                    >
-                      <span>🔱 {t("trainJavelin", lang)}</span>
-                      <span className="text-[9px] text-amber-300 font-mono">16💰 22🌾</span>
-                    </button>
-                    <button
-                      disabled={
-                        engine.resources.wood < 20 ||
-                        engine.resources.food < 25 ||
-                        engine.aliveUnits().length >= engine.popCap()
-                      }
-                      onClick={() => engine.trainFromBarracks(selectedBuilding, "scout")}
-                      className="btn-rpg flex-1 py-1.5 bg-[#0e2730] border border-[#38bdf8] hover:brightness-125 disabled:opacity-40 text-cyan-200 text-[11px] font-bold rounded-xl flex flex-col items-center"
-                    >
-                      <span>🗡️ {t("trainScout", lang)}</span>
-                      <span className="text-[9px] text-amber-300 font-mono">20🪵 25🌾</span>
-                    </button>
+                  <div className="flex items-center justify-between text-[10px] font-bold text-[#ffd56b] uppercase tracking-wide">
+                    <span>{lang === "pt" ? "Treinar Tropas" : "Train Troops"}</span>
+                    <span className="font-mono text-[9px] text-[#a8d4ff]">{alivePop}/{maxPop} 👥</span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-1">
+                    {/* Warrior */}
+                    <div className="relative group">
+                      <button
+                        disabled={
+                          engine.resources.gold < 10 ||
+                          engine.resources.food < 30 ||
+                          engine.aliveUnits().length >= engine.popCap()
+                        }
+                        onClick={() => engine.trainFromBarracks(selectedBuilding, "warrior")}
+                        className="btn-rpg w-full h-11 p-1 bg-[#2e0e13] hover:bg-[#451218] border border-[#f43f5e]/60 hover:border-[#f43f5e] disabled:opacity-35 text-red-200 rounded-xl flex flex-col items-center justify-between shadow active:scale-95"
+                      >
+                        <span className="text-sm">⚔️</span>
+                        <span className="text-[8px] font-mono text-amber-300 font-bold leading-none">10💰30🌾</span>
+                      </button>
+                      <HUDTooltip
+                        title={lang === "pt" ? "Guerreiro de Elite" : "Warrior"}
+                        badge={lang === "pt" ? "Corpo a Corpo" : "Melee"}
+                        desc={lang === "pt" ? "Infantaria blindada com espada e escudo. Tanque resistente para segurar investidas inimigas." : "Armored melee troop. Sturdy frontline defender."}
+                        costs={[
+                          { label: "Gold", icon: "💰", amount: 10, hasEnough: engine.resources.gold >= 10 },
+                          { label: "Food", icon: "🌾", amount: 30, hasEnough: engine.resources.food >= 30 },
+                        ]}
+                        position="right"
+                      />
+                    </div>
+
+                    {/* Javelin */}
+                    <div className="relative group">
+                      <button
+                        disabled={
+                          engine.resources.gold < 16 ||
+                          engine.resources.food < 22 ||
+                          engine.aliveUnits().length >= engine.popCap()
+                        }
+                        onClick={() => engine.trainFromBarracks(selectedBuilding, "javelin")}
+                        className="btn-rpg w-full h-11 p-1 bg-[#101b38] hover:bg-[#172554] border border-[#60a5fa]/60 hover:border-[#60a5fa] disabled:opacity-35 text-blue-200 rounded-xl flex flex-col items-center justify-between shadow active:scale-95"
+                      >
+                        <span className="text-sm">🔱</span>
+                        <span className="text-[8px] font-mono text-amber-300 font-bold leading-none">16💰22🌾</span>
+                      </button>
+                      <HUDTooltip
+                        title={lang === "pt" ? "Lanceiro de Longo Alcance" : "Javelin"}
+                        badge={lang === "pt" ? "À Distância" : "Ranged"}
+                        desc={lang === "pt" ? "Arremessa lanças afiadas perfurando armaduras inimigas a uma distância segura." : "Piercing ranged attacks from safe distance."}
+                        costs={[
+                          { label: "Gold", icon: "💰", amount: 16, hasEnough: engine.resources.gold >= 16 },
+                          { label: "Food", icon: "🌾", amount: 22, hasEnough: engine.resources.food >= 22 },
+                        ]}
+                        position="right"
+                      />
+                    </div>
+
+                    {/* Scout */}
+                    <div className="relative group">
+                      <button
+                        disabled={
+                          engine.resources.wood < 20 ||
+                          engine.resources.food < 25 ||
+                          engine.aliveUnits().length >= engine.popCap()
+                        }
+                        onClick={() => engine.trainFromBarracks(selectedBuilding, "scout")}
+                        className="btn-rpg w-full h-11 p-1 bg-[#091b22] hover:bg-[#0e2730] border border-[#38bdf8]/60 hover:border-[#38bdf8] disabled:opacity-35 text-cyan-200 rounded-xl flex flex-col items-center justify-between shadow active:scale-95"
+                      >
+                        <span className="text-sm">🧭</span>
+                        <span className="text-[8px] font-mono text-amber-300 font-bold leading-none">20🪵25🌾</span>
+                      </button>
+                      <HUDTooltip
+                        title={lang === "pt" ? "Batedor Ágil" : "Scout"}
+                        badge={lang === "pt" ? "Reconhecimento" : "Scout"}
+                        desc={lang === "pt" ? "Unidade veloz que patrulha e detecta ameaças no mapa." : "Fast scouting unit that reveals fog of war."}
+                        costs={[
+                          { label: "Wood", icon: "🪵", amount: 20, hasEnough: engine.resources.wood >= 20 },
+                          { label: "Food", icon: "🌾", amount: 25, hasEnough: engine.resources.food >= 25 },
+                        ]}
+                        position="right"
+                      />
+                    </div>
                   </div>
 
                   {/* Rally All Troops Button */}
-                  <button
-                    type="button"
-                    onClick={() => engine.rallyArmy()}
-                    className="btn-rpg w-full py-1.5 px-2.5 bg-gradient-to-r from-[#451a03] via-[#78350f] to-[#451a03] border border-amber-400/70 hover:brightness-125 text-amber-100 text-[11px] font-bold rounded-xl flex items-center justify-center gap-1.5 active:scale-95 shadow"
-                    title={lang === "pt" ? "Reunir todas as tropas militares para o combate ou formação (Atalho: G)" : "Rally all military troops for battle or formation (Hotkey: G)"}
-                  >
-                    <Swords size={12} className="text-amber-300" />
-                    <span>{lang === "pt" ? "Reunir Exército (G)" : "Rally Army (G)"}</span>
-                  </button>
+                  <div className="relative group">
+                    <button
+                      type="button"
+                      onClick={() => engine.rallyArmy()}
+                      className="btn-rpg w-full py-1.5 px-2 bg-gradient-to-r from-[#451a03] via-[#78350f] to-[#451a03] border border-amber-400/70 hover:brightness-125 text-amber-100 text-[11px] font-bold rounded-xl flex items-center justify-center gap-1.5 active:scale-95 shadow"
+                    >
+                      <Swords size={12} className="text-amber-300" />
+                      <span>{lang === "pt" ? "Reunir Exército (G)" : "Rally Army (G)"}</span>
+                    </button>
+                    <HUDTooltip
+                      title={lang === "pt" ? "Reunir Todo Exército (G)" : "Rally Army (G)"}
+                      desc={lang === "pt" ? "Convoca todos os soldados militares para formação de defesa ou ataque." : "Orders all military units to form up for battle."}
+                      hotkey="G"
+                      position="right"
+                    />
+                  </div>
                 </div>
               )}
 
@@ -1446,35 +1463,10 @@ export const GameHUD: React.FC<GameHUDProps> = ({
               )}
             </div>
           ) : null}
-        </div>
-
-        {/* Center Screen: Banner Announcements & Combos */}
-        <div className="flex flex-col items-center justify-center pointer-events-none mx-auto">
-          {engine.banner.time > 0 && (
-            <div
-              className="px-4 py-2 rounded-xl bg-black/90 border-2 shadow-2xl backdrop-blur-md text-sm md:text-base font-bold font-serif text-center animate-in zoom-in duration-150"
-              style={{ borderColor: engine.banner.color, color: engine.banner.color }}
-            >
-              {engine.banner.text}
-            </div>
-          )}
-
-          {engine.combo.time > 0 && (
-            <div
-              className="mt-2 text-2xl md:text-3xl font-black italic drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] animate-bounce font-serif"
-              style={{ color: engine.combo.color }}
-            >
-              {engine.combo.text}
-            </div>
-          )}
-        </div>
-
-        {/* Right Space */}
-        <div className="w-[1px]" />
       </div>
 
-      {/* 3. BOTTOM OVERLAY: Compact Golem Titan (Bottom-Left) + Worker Badges with Scout (Bottom-Center) + Golden Hammer (Bottom-Right) */}
-      <div className="w-full flex items-end justify-between relative pointer-events-none gap-2">
+      {/* 4. MINIMAL DOCKED BOTTOM BAR */}
+      <div className="fixed bottom-2 inset-x-3 z-30 flex items-end justify-between pointer-events-none gap-2">
         {/* Ancient Stone Golem Compact Hub (#crystalSummon) */}
         <div className="pointer-events-auto shrink-0">
           {engine.golem ? (
@@ -1510,41 +1502,19 @@ export const GameHUD: React.FC<GameHUDProps> = ({
               </button>
             </div>
           ) : engine.resources.crystal >= BALANCE.golem.cost ? (
-            /* Ready to Awaken Glowing Pulse Button */
+            /* Ready to Awaken Button */
             <button
               id="crystalSummon"
               onClick={() => engine.summonGolem()}
-              className="btn-rpg flex items-center gap-2 bg-gradient-to-r from-[#0284c7] via-[#0ea5e9] to-[#0284c7] hover:brightness-125 border-2 border-cyan-300 px-3 py-2 md:py-2.5 rounded-2xl shadow-[0_0_20px_rgba(14,165,233,0.7)] text-white text-xs font-bold animate-pulse active:scale-95"
+              className="btn-rpg flex items-center gap-1.5 bg-[#0284c7] hover:bg-[#0ea5e9] border border-cyan-300 px-2.5 py-1.5 rounded-xl shadow-lg text-white text-xs font-bold animate-pulse active:scale-95"
               title={lang === "pt" ? "Despertar o Golem Ancestral para esmagar as hordas!" : "Awaken Ancient Golem!"}
             >
-              <span className="text-base leading-none">⚡</span>
-              <span className="font-serif tracking-wide">
-                {lang === "pt" ? "DESPERTAR GOLEM!" : "AWAKEN GOLEM!"}
+              <span className="text-sm leading-none">⚡</span>
+              <span className="font-serif tracking-wide text-[11px]">
+                {lang === "pt" ? "DESPERTAR GOLEM" : "AWAKEN GOLEM"}
               </span>
             </button>
-          ) : (
-            /* Inactive Compact Progress Pill */
-            <div
-              className="bg-[#060408]/92 border border-[#73d9ff]/40 px-2.5 py-1.5 rounded-2xl shadow-xl backdrop-blur-md flex items-center gap-2"
-              title={lang === "pt" ? "Colete 100 cristais para despertar o Golem Ancestral" : "Collect 100 crystals to awaken Ancient Golem"}
-            >
-              <span className="text-base leading-none">🗿</span>
-              <div className="flex flex-col">
-                <div className="flex items-center justify-between gap-1.5 text-[10px] font-mono leading-none">
-                  <span className="font-bold text-[#73d9ff]">Golem</span>
-                  <span className="text-[#bae6fd]">
-                    {Math.floor(engine.resources.crystal)}/100 💎
-                  </span>
-                </div>
-                <div className="w-16 md:w-20 h-1 bg-black/60 rounded-full overflow-hidden border border-[#73d9ff]/20 mt-1">
-                  <div
-                    className="h-full bg-gradient-to-r from-[#0ea5e9] to-[#73d9ff] transition-all"
-                    style={{ width: `${Math.min(100, (engine.resources.crystal / BALANCE.golem.cost) * 100)}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
+          ) : null}
         </div>
 
         {/* Worker Information Displays & Auto-Assign (#trHotkeys) */}
@@ -1683,143 +1653,147 @@ export const GameHUD: React.FC<GameHUDProps> = ({
             id="trHotkeys"
             className="pointer-events-auto flex items-center gap-1 md:gap-1.5 bg-[#060408]/95 border-2 border-[#d9ad3f]/40 p-1 md:p-1.5 rounded-2xl shadow-2xl backdrop-blur-md overflow-x-auto max-w-full"
           >
-            {/* Worker Badges: includes Scout! */}
-            {(
-              [
-                "builder",
-                "woodcutter",
-                "stoneMiner",
-                "goldMiner",
-                "farmer",
-                "warrior",
-                "javelin",
-                "scout",
-              ] as const
-            ).map((role) => {
-              const data = roleCounts[role] || { total: 0, working: 0, idle: 0 };
-              const isSelected =
-                engine.selected?.kind === "unit" &&
-                selectedUnit?.role === role;
+            {/* Worker Badges: filtered to active roles only */}
+            {(() => {
+              const activeRoles = (
+                [
+                  "builder",
+                  "woodcutter",
+                  "stoneMiner",
+                  "goldMiner",
+                  "farmer",
+                  "warrior",
+                  "javelin",
+                  "scout",
+                ] as const
+              ).filter((role) => (roleCounts[role]?.total || 0) > 0);
 
-              return (
-                <button
-                  key={role}
-                  onClick={() => engine.selectRoleGroup(role)}
-                  className={`btn-rpg relative flex items-center gap-1.5 px-2 py-1 md:py-1.5 rounded-xl border-2 transition-all shadow select-none min-h-[40px] shrink-0 ${
-                    isSelected
-                      ? "bg-[#d9ad3f]/40 border-[#f2c95a] text-[#ffd56b]"
-                      : data.total > 0
-                      ? "bg-[#180e0c]/90 border-[#5c4a30]/60 text-[#cdc3ac] hover:border-[#d9ad3f]"
-                      : "bg-[#10080a]/60 border-[#3a2818]/40 text-neutral-600 opacity-60 hover:opacity-90"
-                  }`}
-                  title={`${ROLE_INFO[role]?.label} · ${data.total} total (${data.working} ${t("working", lang)}, ${data.idle} ${t("idle", lang)}) — ${lang === "pt" ? "Toque para selecionar todos" : "Click to select all"}`}
-                >
-                  <WorkerHeadIcon role={role} isIdle={data.idle > 0} />
-                  <div className="flex flex-col items-start leading-tight">
-                    <span className="text-xs font-black font-mono text-[#f2c95a]">
-                      {data.total}
-                    </span>
-                    {data.idle > 0 && (
-                      <span className="text-[8px] font-mono text-amber-400 font-bold -mt-0.5">
-                        {data.idle}z
-                      </span>
-                    )}
+              if (activeRoles.length === 0) {
+                return (
+                  <div className="px-2 py-1 text-[11px] font-mono text-stone-500 flex items-center gap-1">
+                    <Users size={12} />
+                    <span>0</span>
                   </div>
-                </button>
-              );
-            })}
+                );
+              }
 
-            <div className="w-[1px] h-7 bg-[#5c4a30]/50 mx-0.5 shrink-0" />
+              return activeRoles.map((role) => {
+                const data = roleCounts[role] || { total: 0, working: 0, idle: 0 };
+                const isSelected =
+                  engine.selected?.kind === "unit" &&
+                  selectedUnit?.role === role;
+
+                return (
+                  <button
+                    key={role}
+                    onClick={() => engine.selectRoleGroup(role)}
+                    className={`relative flex items-center gap-1 px-1.5 py-1 rounded-lg border transition-all shadow select-none h-8 shrink-0 cursor-pointer ${
+                      isSelected
+                        ? "bg-amber-500/30 border-amber-400 text-amber-200"
+                        : "bg-[#140e0c]/85 border-stone-800 text-stone-300 hover:border-stone-600"
+                    }`}
+                    title={`${ROLE_INFO[role]?.label} · ${data.total} total (${data.working} ${t("working", lang)}, ${data.idle} ${t("idle", lang)}) — ${lang === "pt" ? "Selecionar todos" : "Select all"}`}
+                  >
+                    <WorkerHeadIcon role={role} isIdle={data.idle > 0} />
+                    <div className="flex flex-col items-start leading-none">
+                      <span className="text-[11px] font-bold font-mono text-amber-300">
+                        {data.total}
+                      </span>
+                      {data.idle > 0 && (
+                        <span className="text-[7.5px] font-mono text-amber-400 font-bold">
+                          {data.idle}z
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              });
+            })()}
 
             {/* Quick Cycle Next Idle Villager Button */}
             {idleVillagersCount > 0 && (
-              <button
-                onClick={() => engine.selectNextIdleWorker()}
-                className="btn-rpg relative px-2.5 py-1 flex items-center gap-1.5 rounded-xl border-2 border-amber-400 bg-gradient-to-br from-[#78350f] via-[#b45309] to-[#78350f] text-amber-100 shadow-[0_0_12px_rgba(245,158,11,0.5)] hover:brightness-125 min-h-[40px] shrink-0 active:scale-95 animate-pulse"
-                title={
-                  lang === "pt"
-                    ? `Focar próximo aldeão ocioso (${idleVillagersCount} ociosos) [Atalho: . ou Z]`
-                    : `Focus next idle villager (${idleVillagersCount} idle) [Hotkey: . or Z]`
-                }
-              >
-                <span className="text-sm">💤</span>
-                <div className="flex flex-col items-start leading-tight">
-                  <span className="text-[11px] font-black font-mono text-amber-200">
-                    {idleVillagersCount} {lang === "pt" ? "Ocioso" : "Idle"}
-                  </span>
-                  <span className="text-[8px] font-mono text-amber-300/80 -mt-0.5">
-                    {lang === "pt" ? "Focar ( . )" : "Cycle ( . )"}
-                  </span>
-                </div>
-              </button>
+              <>
+                <div className="w-[1px] h-6 bg-stone-800 mx-0.5 shrink-0" />
+                <button
+                  onClick={() => engine.selectNextIdleWorker()}
+                  className="relative px-2 py-1 flex items-center gap-1 rounded-lg border border-amber-500/60 bg-amber-950/80 text-amber-200 shadow hover:bg-amber-900/90 h-8 shrink-0 active:scale-95 animate-pulse cursor-pointer"
+                  title={
+                    lang === "pt"
+                      ? `Focar próximo aldeão ocioso (${idleVillagersCount} ociosos) [Atalho: .]`
+                      : `Focus next idle villager (${idleVillagersCount} idle) [Hotkey: .]`
+                  }
+                >
+                  <span className="text-xs">💤</span>
+                  <div className="flex flex-col items-start leading-none">
+                    <span className="text-[10px] font-bold font-mono text-amber-200">
+                      {idleVillagersCount} {lang === "pt" ? "Ocioso" : "Idle"}
+                    </span>
+                    <span className="text-[7.5px] font-mono text-amber-300/80">
+                      ( . )
+                    </span>
+                  </div>
+                </button>
+              </>
             )}
 
             {/* Quick Auto-Assign All Idle Button */}
-            <button
-              onClick={() => engine.autoAssignIdle()}
-              className="btn-rpg relative px-3 py-1.5 flex items-center gap-1.5 rounded-xl border-2 border-emerald-500/80 bg-gradient-to-br from-[#166534] to-[#14532d] text-emerald-100 shadow hover:brightness-125 min-h-[40px] shrink-0 active:scale-95"
-              title={t("autoAssignTip", lang)}
-            >
-              <Sparkles size={14} className="text-emerald-300 animate-spin" style={{ animationDuration: "12s" }} />
-              <span className="text-xs font-bold font-mono">
-                {lang === "pt" ? "Atribuir" : "Auto"}
-              </span>
-            </button>
+            {idleVillagersCount > 0 && (
+              <button
+                onClick={() => engine.autoAssignIdle()}
+                className="relative px-2 py-1 flex items-center gap-1 rounded-lg border border-emerald-600/70 bg-emerald-950/80 text-emerald-200 shadow hover:bg-emerald-900/90 h-8 shrink-0 active:scale-95 cursor-pointer"
+                title={t("autoAssignTip", lang)}
+              >
+                <Sparkles size={11} className="text-emerald-400" />
+                <span className="text-[10px] font-bold font-mono">
+                  {lang === "pt" ? "Atribuir" : "Auto"}
+                </span>
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Golden Build Hammer Wrap (#trHammerWrap) */}
+        {/* Hammer Build Button */}
         <div id="trHammerWrap" className="pointer-events-auto relative shrink-0">
-          <div className="absolute -inset-4 rounded-full bg-radial from-amber-400/50 via-amber-400/10 to-transparent animate-hammer-halo pointer-events-none" />
           <button
             id="trHammer"
             onClick={() => setBuildMenuOpen(!buildMenuOpen)}
-            className={`trIco relative w-14 h-14 md:w-18 md:h-18 rounded-2xl md:rounded-3xl flex items-center justify-center cursor-pointer border-4 shadow-2xl transition-all active:scale-95 animate-hammer-pulse ${
+            className={`relative w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center cursor-pointer border shadow transition-all active:scale-95 ${
               buildMenuOpen || engine.buildMode
-                ? "bg-gradient-to-b from-amber-500/40 to-amber-700/40 border-amber-300 text-amber-200 shadow-[0_0_20px_rgba(251,191,36,0.6)]"
-                : "bg-gradient-to-b from-[#4a2c14] to-[#1c0f07] border-[#8a6a1f] text-[#f2c95a] hover:border-[#f2c95a]"
+                ? "bg-amber-500/35 border-amber-400 text-amber-200 shadow-[0_0_12px_rgba(251,191,36,0.5)]"
+                : "bg-[#140e0b]/90 border-stone-700 hover:border-amber-500/70 text-amber-400"
             }`}
             title={`${t("buildMenuBtn", lang)} (B)`}
           >
-            <Hammer size={28} className="text-[#f2c95a] filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]" />
+            <Hammer size={18} />
           </button>
         </div>
       </div>
 
-      {/* 4. ORDERED BUILD PALETTE MODAL (#trBuildBubble) */}
+      {/* 4. SLEEK MINIMALIST BUILD DOCK (#trBuildBubble) */}
       {buildMenuOpen && (
-        <div className="fixed inset-x-3 bottom-20 md:inset-auto md:right-4 md:bottom-24 bg-[#0c0705]/98 border-2 border-amber-500/70 p-3 md:p-4 rounded-3xl shadow-[0_12px_40px_rgba(0,0,0,0.9)] backdrop-blur-xl pointer-events-auto z-50 animate-in zoom-in-95 duration-150 max-w-md w-auto">
-          <div className="flex items-center justify-between border-b border-[#5c4a30]/60 pb-2 mb-2.5">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-lg bg-amber-500/20 border border-amber-400/50 flex items-center justify-center text-amber-300">
-                <Hammer size={14} />
-              </div>
-              <span className="font-serif font-black text-sm md:text-base text-amber-300 uppercase tracking-wider">
-                {lang === "pt" ? "Menu de Construções" : "Construction Palette"}
-              </span>
-            </div>
-            <button
-              onClick={() => setBuildMenuOpen(false)}
-              className="w-7 h-7 flex items-center justify-center rounded-full bg-white/10 hover:bg-rose-900/60 text-amber-200 hover:text-white transition-colors text-sm font-bold active:scale-95"
-              title="Fechar"
-            >
-              ✕
-            </button>
+        <div
+          id="trBuildBubble"
+          className="fixed bottom-20 md:bottom-22 left-1/2 -translate-x-1/2 z-50 pointer-events-auto flex items-center gap-1 md:gap-1.5 bg-[#080406]/98 border-2 border-amber-500/80 p-1.5 md:p-2 rounded-2xl md:rounded-3xl shadow-[0_12px_45px_rgba(0,0,0,0.95)] backdrop-blur-xl animate-in zoom-in-95 duration-150 max-w-[calc(100vw-16px)] overflow-x-auto"
+        >
+          {/* Header Badge */}
+          <div className="hidden sm:flex items-center gap-1.5 px-2 text-amber-300 font-serif font-black text-xs shrink-0 border-r border-[#5c4a30]/60 mr-0.5">
+            <Hammer size={14} className="text-amber-400" />
+            <span>{lang === "pt" ? "Construir" : "Build"}</span>
           </div>
 
-          {/* Ordered Grid: House -> Farm -> Lumber -> Quarry -> Tower -> Barracks -> Palisade -> Gate -> Altar */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-[58vh] md:max-h-[64vh] overflow-y-auto pr-1">
-            {BUILDING_ORDER.map((key) => {
-              const spec = BUILD_SPECS[key];
-              const meta = BUILDING_METADATA[key];
-              const isSelected = engine.buildMode === key;
-              const canAfford = Object.entries(spec.cost).every(
-                ([res, cost]) => (engine.resources as any)[res] >= (cost || 0)
-              );
+          {/* 9 Compact Icon Buttons with Floating Tooltips */}
+          {BUILDING_ORDER.map((key, idx) => {
+            const spec = BUILD_SPECS[key];
+            const meta = BUILDING_METADATA[key];
+            const isSelected = engine.buildMode === key;
+            const canAfford = Object.entries(spec.cost).every(
+              ([res, cost]) => (engine.resources as any)[res] >= (cost || 0)
+            );
 
-              return (
+            return (
+              <div key={key} className="relative group shrink-0">
                 <button
-                  key={key}
+                  type="button"
                   onClick={() => {
                     const nextMode = isSelected ? null : key;
                     engine.buildMode = nextMode;
@@ -1834,57 +1808,54 @@ export const GameHUD: React.FC<GameHUDProps> = ({
                     setBuildMenuOpen(false);
                   }}
                   disabled={!canAfford}
-                  className={`btn-rpg p-2.5 rounded-2xl border-2 text-left transition-all active:scale-95 shadow flex flex-col justify-between gap-1.5 min-h-[78px] ${
+                  className={`btn-rpg relative w-11 h-11 md:w-12 md:h-12 rounded-xl md:rounded-2xl border-2 flex flex-col items-center justify-center transition-all active:scale-95 shadow cursor-pointer ${
                     isSelected
-                      ? "bg-amber-500/30 border-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.6)]"
+                      ? "bg-amber-500/35 border-amber-300 shadow-[0_0_14px_rgba(251,191,36,0.7)] scale-105"
                       : canAfford
-                      ? `bg-gradient-to-b ${meta.gradient} ${meta.border} hover:border-amber-300 text-[#f4e8d1]`
-                      : "bg-[#140b0f]/80 border-neutral-800 text-neutral-500 opacity-50 cursor-not-allowed"
+                      ? `bg-gradient-to-b ${meta.gradient} ${meta.border} hover:border-amber-300 hover:scale-105 text-[#f4e8d1]`
+                      : "bg-[#140b0f]/80 border-neutral-800 text-neutral-500 opacity-40 cursor-not-allowed"
                   }`}
+                  aria-label={meta.name[lang]}
                 >
-                  <div className="flex items-start gap-2">
-                    <div
-                      className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border border-white/15 shadow bg-black/40"
-                    >
-                      {meta.icon(18)}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="font-bold text-xs text-amber-200 truncate">
-                          {meta.name[lang]}
-                        </span>
-                        <span className="text-[8px] font-mono px-1 py-0.2 bg-black/40 rounded text-amber-400/80 uppercase font-bold shrink-0">
-                          {meta.category[lang]}
-                        </span>
-                      </div>
-                      <div className="text-[10px] text-amber-100/75 leading-tight line-clamp-1 mt-0.5">
-                        {meta.desc[lang]}
-                      </div>
-                    </div>
-                  </div>
+                  {/* Distinctive Icon */}
+                  {meta.icon(19)}
 
-                  {/* Resource Cost Chips with Icons */}
-                  <div className="flex items-center flex-wrap gap-1.5 mt-auto pt-1 border-t border-white/10 text-[10px] font-mono font-bold">
-                    {spec.cost.wood && (
-                      <span className={engine.resources.wood >= spec.cost.wood ? "text-amber-400" : "text-rose-400"}>
-                        🪵 {spec.cost.wood}
-                      </span>
-                    )}
-                    {spec.cost.stone && (
-                      <span className={engine.resources.stone >= spec.cost.stone ? "text-slate-300" : "text-rose-400"}>
-                        🪨 {spec.cost.stone}
-                      </span>
-                    )}
-                    {spec.cost.gold && (
-                      <span className={engine.resources.gold >= spec.cost.gold ? "text-yellow-400" : "text-rose-400"}>
-                        💰 {spec.cost.gold}
-                      </span>
-                    )}
-                  </div>
+                  {/* Hotkey number in corner */}
+                  <span className="absolute top-0.5 right-1 text-[8px] font-mono text-amber-300/80 font-bold leading-none">
+                    {idx + 1}
+                  </span>
+
+                  {/* Subtle Primary Cost Indicator below icon */}
+                  <span className="text-[7.5px] font-mono font-bold leading-none -mb-0.5 text-amber-200/90 truncate max-w-[38px]">
+                    {spec.cost.wood ? `${spec.cost.wood}🪵` : spec.cost.gold ? `${spec.cost.gold}💰` : ""}
+                  </span>
                 </button>
-              );
-            })}
-          </div>
+
+                {/* Floating Tooltip above icon button */}
+                <HUDTooltip
+                  title={meta.name[lang]}
+                  badge={meta.category[lang]}
+                  desc={meta.desc[lang]}
+                  costs={[
+                    ...(spec.cost.wood ? [{ label: lang === "pt" ? "Madeira" : "Wood", icon: "🪵", amount: spec.cost.wood, hasEnough: engine.resources.wood >= spec.cost.wood }] : []),
+                    ...(spec.cost.stone ? [{ label: lang === "pt" ? "Pedra" : "Stone", icon: "🪨", amount: spec.cost.stone, hasEnough: engine.resources.stone >= spec.cost.stone }] : []),
+                    ...(spec.cost.gold ? [{ label: lang === "pt" ? "Ouro" : "Gold", icon: "💰", amount: spec.cost.gold, hasEnough: engine.resources.gold >= spec.cost.gold }] : []),
+                  ]}
+                  hotkey={`${idx + 1}`}
+                  position="top"
+                />
+              </div>
+            );
+          })}
+
+          {/* Close button */}
+          <button
+            onClick={() => setBuildMenuOpen(false)}
+            className="w-7 h-7 rounded-xl bg-white/10 hover:bg-rose-900/60 text-amber-200 hover:text-white transition-colors text-xs font-bold flex items-center justify-center shrink-0 ml-0.5 active:scale-95"
+            title="Fechar"
+          >
+            ✕
+          </button>
         </div>
       )}
 

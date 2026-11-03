@@ -31,7 +31,7 @@ interface GuidedTutorialHUDProps {
 }
 
 export const GuidedTutorialHUD: React.FC<GuidedTutorialHUDProps> = ({ engine, lang }) => {
-  const [minimized, setMinimized] = useState<boolean>(false);
+  const [minimized, setMinimized] = useState<boolean>(true);
   const [dismissed, setDismissed] = useState<boolean>(() => {
     try {
       return localStorage.getItem("tinyrealm_tutorial_finished") === "true";
@@ -173,13 +173,32 @@ export const GuidedTutorialHUD: React.FC<GuidedTutorialHUDProps> = ({ engine, la
 
   const activeStep = allFinished ? stepsData[5] : stepsData[currentStep];
 
+  if (dismissed) return null;
+
+  if (minimized) {
+    return (
+      <div className="fixed top-11 left-3 z-20 pointer-events-auto">
+        <button
+          onClick={() => setMinimized(false)}
+          className="relative w-7 h-7 rounded-lg bg-[#0c0705]/90 hover:bg-[#180e0a] border border-stone-700/80 hover:border-amber-400 text-amber-300 flex items-center justify-center shadow-md backdrop-blur-md active:scale-95 transition-all cursor-pointer"
+          title={lang === "pt" ? "Missões & Guia de Sobrevivência" : "Quests & Survival Guide"}
+        >
+          <HelpCircle size={14} />
+          {!allFinished && (
+            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+          )}
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="fixed top-14 md:top-16 left-2 md:left-4 z-20 max-w-[calc(100vw-16px)] md:max-w-xs select-none transition-all duration-300 pointer-events-auto">
-      <div className="bg-[#0c0705]/85 hover:bg-[#0c0705]/95 border border-amber-500/40 rounded-2xl shadow-[0_8px_24px_rgba(0,0,0,0.65)] backdrop-blur-md overflow-hidden transition-all">
+    <div className="fixed top-11 left-3 z-20 max-w-[calc(100vw-16px)] md:max-w-xs select-none transition-all duration-300 pointer-events-auto">
+      <div className="bg-[#0c0705]/95 border border-stone-700/80 rounded-xl shadow-2xl backdrop-blur-md overflow-hidden transition-all">
         {/* Header Bar */}
         <div 
-          onClick={() => setMinimized(!minimized)}
-          className="flex items-center justify-between px-3 py-1.5 bg-black/40 border-b border-amber-500/20 cursor-pointer"
+          onClick={() => setMinimized(true)}
+          className="flex items-center justify-between px-2.5 py-1.5 bg-black/40 border-b border-stone-800 cursor-pointer"
         >
           <div className="flex items-center gap-2 min-w-0">
             <div className="p-1.5 bg-amber-500/20 border border-amber-500/40 rounded-xl text-amber-300 shrink-0">

@@ -24,13 +24,7 @@ interface MinimapRadarProps {
 
 export const MinimapRadar: React.FC<MinimapRadarProps> = ({ engine, lang }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [isOpen, setIsOpen] = useState(() => {
-    try {
-      return localStorage.getItem("tinyrealm_minimap_open") !== "false";
-    } catch {
-      return true;
-    }
-  });
+  const [isOpen, setIsOpen] = useState(false);
 
   const isDraggingRef = useRef(false);
 
@@ -332,117 +326,57 @@ export const MinimapRadar: React.FC<MinimapRadarProps> = ({ engine, lang }) => {
       )}
 
       {/* Main Radar Frame */}
-      <div className="bg-[#080509]/95 border-2 border-[#d9ad3f]/50 rounded-2xl shadow-2xl backdrop-blur-md overflow-hidden flex flex-col p-1.5 transition-all">
-        {/* Radar Header with Title and Collapse Toggle */}
-        <div className="flex items-center justify-between gap-2 px-1 pb-1 border-b border-[#5c4a30]/40">
-          <div className="flex items-center gap-1 text-[10px] font-serif font-black text-[#f2c95a] uppercase tracking-wider">
-            <Compass size={13} className="text-[#d9ad3f]" />
-            <span>{lang === "pt" ? "Radar do Reino" : "Realm Radar"}</span>
+      {!isOpen ? (
+        <button
+          onClick={toggleOpen}
+          className="pointer-events-auto relative w-8 h-8 rounded-xl bg-[#080509]/90 hover:bg-[#140b10] border border-stone-700/60 hover:border-amber-400 text-amber-300 flex items-center justify-center shadow-lg backdrop-blur-md active:scale-95 transition-all"
+          title={lang === "pt" ? "Abrir Radar (M)" : "Open Radar (M)"}
+        >
+          <Compass size={16} />
+          {aliveEnemies > 0 && (
+            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
+          )}
+        </button>
+      ) : (
+        <div className="pointer-events-auto bg-[#080509]/95 border border-stone-700/70 rounded-xl shadow-2xl backdrop-blur-md overflow-hidden flex flex-col p-1.5 transition-all">
+          {/* Radar Header with Title and Collapse Toggle */}
+          <div className="flex items-center justify-between gap-2 px-1 pb-1 border-b border-stone-800">
+            <div className="flex items-center gap-1 text-[9px] font-mono font-bold text-amber-300 uppercase tracking-wider">
+              <Compass size={12} className="text-amber-400" />
+              <span>{lang === "pt" ? "Radar" : "Radar"}</span>
+            </div>
+
+            <div className="flex items-center gap-1">
+              {aliveEnemies > 0 && (
+                <span className="px-1 py-0.2 rounded-full bg-rose-950/80 border border-rose-600/60 text-[8px] font-mono text-rose-300 font-bold flex items-center gap-0.5">
+                  <Skull size={9} className="text-rose-400" />
+                  <span>{aliveEnemies}</span>
+                </span>
+              )}
+              <button
+                onClick={toggleOpen}
+                className="p-0.5 rounded hover:bg-white/10 text-stone-400 hover:text-stone-200 transition-colors"
+                title={lang === "pt" ? "Fechar Radar" : "Close Radar"}
+              >
+                <ChevronDown size={13} />
+              </button>
+            </div>
           </div>
 
-          <div className="flex items-center gap-1">
-            {aliveEnemies > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full bg-red-950/80 border border-red-600/70 text-[9px] font-mono text-red-300 font-bold flex items-center gap-0.5">
-                <Skull size={10} className="text-red-400" />
-                <span>{aliveEnemies}</span>
-              </span>
-            )}
-            <button
-              onClick={toggleOpen}
-              className="p-1 rounded-lg hover:bg-white/10 text-amber-300 transition-colors active:scale-95"
-              title={isOpen ? (lang === "pt" ? "Minimizar Radar" : "Collapse Radar") : (lang === "pt" ? "Expandir Radar" : "Expand Radar")}
-            >
-              {isOpen ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-            </button>
+          {/* Canvas Map Area */}
+          <div className="relative border border-stone-800 rounded-lg overflow-hidden cursor-crosshair bg-black mt-1">
+            <canvas
+              ref={canvasRef}
+              width={112}
+              height={112}
+              className="w-[104px] h-[104px] md:w-[112px] md:h-[112px] block touch-none"
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+            />
           </div>
         </div>
-
-        {/* Collapsible Canvas Map Area */}
-        {isOpen && (
-          <div className="flex flex-col gap-1.5 pt-1.5">
-            <div className="relative border border-[#d9ad3f]/30 rounded-xl overflow-hidden cursor-crosshair shadow-inner bg-black">
-              <canvas
-                ref={canvasRef}
-                width={128}
-                height={128}
-                className="w-[116px] h-[116px] md:w-[128px] md:h-[128px] block touch-none"
-                onPointerDown={onPointerDown}
-                onPointerMove={onPointerMove}
-                onPointerUp={onPointerUp}
-              />
-            </div>
-
-            {/* Quick Action Navigation Bar */}
-            <div className="grid grid-cols-3 gap-1">
-              {/* Center on Castle */}
-              <button
-                onClick={() => {
-                  engine.centerOnCastle();
-                  sound.playSfx("select");
-                  haptic("light");
-                }}
-                className="btn-rpg py-1 px-1 bg-[#1a120c] hover:bg-[#2b1f14] border border-[#d9ad3f]/40 hover:border-amber-400 text-amber-300 rounded-lg text-[9px] font-bold flex flex-col items-center justify-center gap-0.5 shadow active:scale-95"
-                title={lang === "pt" ? "Centralizar no Castelo" : "Center Castle"}
-              >
-                <Crosshair size={12} className="text-amber-400" />
-                <span className="truncate">{lang === "pt" ? "Castelo" : "Castle"}</span>
-              </button>
-
-              {/* Center on Hero */}
-              <button
-                disabled={!hero || hero.hp <= 0}
-                onClick={() => {
-                  if (hero && hero.hp > 0) {
-                    engine.camera.x = hero.x * TS;
-                    engine.camera.y = hero.y * TS;
-                    sound.playSfx("select");
-                    haptic("light");
-                  }
-                }}
-                className="btn-rpg py-1 px-1 bg-[#1a120c] hover:bg-[#2b1f14] border border-[#d9ad3f]/40 hover:border-amber-400 text-amber-300 disabled:opacity-40 rounded-lg text-[9px] font-bold flex flex-col items-center justify-center gap-0.5 shadow active:scale-95"
-                title={lang === "pt" ? "Centralizar no Herói" : "Center Hero"}
-              >
-                <Crown size={12} className="text-yellow-400" />
-                <span className="truncate">{lang === "pt" ? "Herói" : "Hero"}</span>
-              </button>
-
-              {/* Town Bell: Shelter / Return Villagers */}
-              <button
-                onClick={() => {
-                  if (shelteredCount > 0) {
-                    engine.returnVillagersToWork();
-                    haptic("success");
-                  } else {
-                    engine.hideAllVillagers();
-                    haptic("warning");
-                  }
-                }}
-                className={`btn-rpg py-1 px-1 border rounded-lg text-[9px] font-bold flex flex-col items-center justify-center gap-0.5 shadow active:scale-95 transition-all ${
-                  shelteredCount > 0
-                    ? "bg-emerald-950/90 border-emerald-400 text-emerald-200"
-                    : "bg-[#1f1013] hover:bg-[#341820] border-rose-500/60 text-rose-300"
-                }`}
-                title={
-                  shelteredCount > 0
-                    ? (lang === "pt" ? "Fazer aldeões voltarem ao trabalho (J)" : "Return villagers to work (J)")
-                    : (lang === "pt" ? "Tocar o sino e abrigar aldeões no Castelo (H)" : "Ring bell and shelter villagers in Castle (H)")
-                }
-              >
-                <Bell size={12} className={shelteredCount > 0 ? "text-emerald-300 animate-bounce" : "text-rose-400"} />
-                <span className="truncate">
-                  {shelteredCount > 0
-                    ? lang === "pt"
-                      ? `Voltar (${shelteredCount})`
-                      : `Return (${shelteredCount})`
-                    : lang === "pt"
-                    ? "Abrigar"
-                    : "Shelter"}
-                </span>
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 };

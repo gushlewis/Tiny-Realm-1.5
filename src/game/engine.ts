@@ -183,7 +183,8 @@ function mulberry32(a: number) {
 }
 
 export class GameEngine {
-  public rng: () => number = mulberry32(Date.now());
+  public currentSeed: number = Date.now();
+  public rng: () => number = mulberry32(this.currentSeed);
   public screen: "menu" | "play" | "defeat" = "menu";
   public onScreenChange?: (screen: "menu" | "play" | "defeat") => void;
 
@@ -277,7 +278,7 @@ export class GameEngine {
   public clickMarker: { x: number; y: number; color: string; time: number; max: number } | null = null;
   public lang: Language = "pt";
 
-  public stats: GameStats = { kills: 0, eliteKills: 0, bossKills: 0, crystalSpent: 0, hallDamageTaken: 0 };
+  public stats: GameStats = { kills: 0, eliteKills: 0, bossKills: 0, crystalSpent: 0, hallDamageTaken: 0, resourcesCollected: 0 };
   public objectives = { farm: false, recruit: false, house: false, wave: false };
   public logs: string[] = [];
 
@@ -298,9 +299,12 @@ export class GameEngine {
     }
   }
 
-  public initMap(biome: BiomeType = this.biome || "forest") {
+  public initMap(biome: BiomeType = this.biome || "forest", seed?: number) {
     this.biome = biome;
-    this.rng = mulberry32(Date.now());
+    if (seed !== undefined) {
+      this.currentSeed = seed;
+    }
+    this.rng = mulberry32(this.currentSeed);
     this.terrain = Array.from({ length: ROWS }, () => Array(COLS).fill("grass"));
     this.explored = Array.from({ length: ROWS }, () => Array(COLS).fill(false));
     this.visible = Array.from({ length: ROWS }, () => Array(COLS).fill(false));
@@ -572,10 +576,11 @@ export class GameEngine {
     });
   }
 
-  public newGame(play: boolean) {
+  public newGame(play: boolean, seed?: number) {
     this.gameMode = "survival";
     this.biome = "forest";
     this.campaignVictory = false;
+    this.currentSeed = seed !== undefined ? seed : Date.now();
     this.setScreen(play ? "play" : "menu");
     this.paused = false;
     this.speed = 1;
@@ -589,11 +594,11 @@ export class GameEngine {
     this.wavesSurvived = 0;
     this.lastWaveCleared = 0;
     this.lastWarnedWave = 0;
-    this.stats = { kills: 0, eliteKills: 0, bossKills: 0, crystalSpent: 0, hallDamageTaken: 0 };
+    this.stats = { kills: 0, eliteKills: 0, bossKills: 0, crystalSpent: 0, hallDamageTaken: 0, resourcesCollected: 0 };
     this.objectives = { farm: false, recruit: false, house: false, wave: false };
     this.logs = [];
 
-    this.initMap(this.biome);
+    this.initMap(this.biome, this.currentSeed);
     this.log("Build 90s. Survive 30s. Face a sovereign insect boss every 10th wave.");
     this.log("Select the Town Hall to recruit villagers. Build a Farm to sustain food.");
     this.setBanner("Build 90s · Survive 30s · Defend against the swarm!", 4, "#f4c97a");
@@ -1967,7 +1972,7 @@ export class GameEngine {
     if (candidates.length > 0) {
       for (const c of candidates) {
         // High weight on unexplored fog density; distance penalty prevents inefficient criss-crossing
-        const score = c.unexploredCount * 3.8 - c.dist * 0.7 + (Math.random() - 0.5) * 6;
+        const score = c.unexploredCount * 3.8 - c.dist * 0.7 + (this.rng() - 0.5) * 6;
         if (score > bestScore) {
           bestScore = score;
           bestPos = { x: c.x, y: c.y };
@@ -1981,8 +1986,8 @@ export class GameEngine {
     const c = this.castle();
     const cx = c ? c.x + 1.5 : 32;
     const cy = c ? c.y + 1.5 : 32;
-    const patDist = 18 + Math.floor(Math.random() * 8);
-    const angle = angles[Math.floor(Math.random() * angles.length)];
+    const patDist = 18 + Math.floor(this.rng() * 8);
+    const angle = angles[Math.floor(this.rng() * angles.length)];
     const px = Math.max(3, Math.min(COLS - 4, Math.round(cx + Math.cos(angle) * patDist)));
     const py = Math.max(3, Math.min(ROWS - 4, Math.round(cy + Math.sin(angle) * patDist)));
     if (this.walkable(px, py)) {
@@ -2795,7 +2800,7 @@ export class GameEngine {
     const frontOrSide = spots.filter((s) => s.y >= b.y);
     const candidates = frontOrSide.length > 0 ? frontOrSide : spots;
     const freeSpot = candidates.find((s) => !this.occupied(s.x, s.y));
-    const spawnPos = freeSpot || (candidates.length ? candidates[Math.floor(Math.random() * candidates.length)] : { x: b.x, y: b.y + b.h });
+    const spawnPos = freeSpot || (candidates.length ? candidates[Math.floor(this.rng() * candidates.length)] : { x: b.x, y: b.y + b.h });
 
     const u = this.addUnit(spawnPos.x, spawnPos.y, role);
     const col = role === "warrior" ? "#ffd56b" : role === "javelin" ? "#a8d4ff" : "#73d9ff";
@@ -3111,6 +3116,7 @@ export class GameEngine {
     this.log(`Boss Wave! ${bossName} emerges from the ${this.edge}.`);
     sound.playBossMusic();
     sound.playSfx("bossRoar");
+    funtico.recordEvent("boss_spawned", { wave, bossVariant: variant, bossName, edge: this.edge, hp: bossHp }, Math.floor(this.time));
   }
 
   /**
@@ -3557,7 +3563,7 @@ export class GameEngine {
 
         if (target) {
           this.damageEnemy(target, a.damage);
-          if (a.chain && Math.random() < a.chain.chance) {
+          if (a.chain && this.rng() < a.chain.chance) {
             this.chainLightning(target.x, target.y, target, a.chain);
           }
         }
@@ -3912,6 +3918,7 @@ export class GameEngine {
         if (b.type === "house") this.objectives.house = true;
         this.setBanner(`${BUILD_SPECS[b.type]?.label || b.type} constructed!`, 2, "#8fe39a");
         this.log(`${BUILD_SPECS[b.type]?.label || b.type} completed.`);
+        funtico.recordEvent("building_completed", { type: b.type, tier: b.tier }, Math.floor(this.time));
       }
       sound.playSfx("build");
       
@@ -4054,7 +4061,7 @@ export class GameEngine {
       const fireOrbBoost = this.relics.some((r) => r.id === "orb_of_fire") ? 1.3 : 1.0;
 
       u.attackCd = cd;
-      const isCrit = Math.random() < critChance;
+      const isCrit = this.rng() < critChance;
       const finalDmg = Math.round(baseDmg * (isCrit ? 1.8 : 1.0) * boost * tierBoost * vetBoost * warCryDmgBoost * crownDmgBoost * fireOrbBoost * 10) / 10;
 
       const prevHp = e.hp;
@@ -4138,7 +4145,7 @@ export class GameEngine {
       this.resources.gold += 1;
 
       const dropChance = BALANCE.killCrystal[e.species as keyof typeof BALANCE.killCrystal] || BALANCE.killCrystal.base;
-      if (Math.random() < dropChance || e.kind === "elite") {
+      if (this.rng() < dropChance || e.kind === "elite") {
         const dropAmt = e.kind === "elite" ? 2 : 1;
         this.resources.crystal += dropAmt;
         this.float(`+${dropAmt} Crystal`, e.x, e.y - 0.5, "#73d9ff");
@@ -5142,7 +5149,7 @@ export class GameEngine {
     ];
 
     const pool = this.lang === "pt" ? ptPhrases : enPhrases;
-    const shoutLine = customLine || pool[Math.floor(Math.random() * pool.length)];
+    const shoutLine = customLine || pool[Math.floor(this.rng() * pool.length)];
 
     let avgX = 0;
     let avgY = 0;
@@ -5484,6 +5491,7 @@ export class GameEngine {
       2.5,
       "#ffe66d"
     );
+    funtico.recordEvent("hero_ability_cast", { ability: "holy_smite", level: hero.level, hits }, Math.floor(this.time));
   }
 
   public useHeroAbility(role?: AltarHeroRole | "golem") {
