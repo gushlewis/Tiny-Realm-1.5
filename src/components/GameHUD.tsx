@@ -133,45 +133,228 @@ const HUDTooltip: React.FC<{
   );
 };
 
-// Small, discreet animated pixel head for each worker profession
-const WorkerHeadIcon: React.FC<{ role: RoleType; isIdle?: boolean }> = ({ role, isIdle }) => {
-  const configs: Record<RoleType, { hat: string; plume?: string; trim: string; skin: string }> = {
-    builder: { hat: "#eab308", trim: "#ca8a04", skin: "#fed7aa" },
-    woodcutter: { hat: "#15803d", plume: "#dc2626", trim: "#166534", skin: "#fed7aa" },
-    stoneMiner: { hat: "#64748b", trim: "#334155", skin: "#fed7aa" },
-    goldMiner: { hat: "#f59e0b", trim: "#d97706", skin: "#fed7aa" },
-    farmer: { hat: "#d97706", trim: "#92400e", skin: "#fed7aa" },
-    warrior: { hat: "#475569", plume: "#e11d48", trim: "#1e293b", skin: "#fed7aa" },
-    javelin: { hat: "#0284c7", plume: "#38bdf8", trim: "#0369a1", skin: "#fed7aa" },
-    trainee: { hat: "#854d0e", trim: "#713f12", skin: "#fed7aa" },
-    scout: { hat: "#047857", plume: "#10b981", trim: "#065f46", skin: "#fed7aa" },
-  };
-
-  const conf = configs[role] || configs.builder;
-
+// Authentic, distinctive pixel-art character heads ("cabecinhas") for each worker & soldier profession
+const WorkerHeadIcon: React.FC<{ role: RoleType; isIdle?: boolean; size?: number }> = ({ role, isIdle, size = 22 }) => {
   return (
-    <div className="relative w-6 h-6 flex items-center justify-center">
+    <div className="relative flex items-center justify-center shrink-0" style={{ width: size, height: size }}>
       <svg
         viewBox="0 0 16 16"
         shapeRendering="crispEdges"
-        className={`w-6 h-6 filter drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)] transition-transform ${
+        className={`w-full h-full filter drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)] transition-transform ${
           isIdle ? "animate-bounce" : "hover:scale-110"
         }`}
-        style={{ animationDuration: "2.2s" }}
+        style={{ animationDuration: "2s" }}
       >
-        {/* Head / Face */}
-        <rect x="4" y="5" width="8" height="8" rx="1" fill={conf.skin} />
-        {/* Eyes */}
-        <rect x="6" y="8" width="1.5" height="1.5" fill="#1e1b4b" />
-        <rect x="9" y="8" width="1.5" height="1.5" fill="#1e1b4b" />
-        {/* Hat / Helm */}
-        <rect x="3" y="3" width="10" height="3.5" rx="1" fill={conf.hat} />
-        <rect x="2.5" y="5" width="11" height="1.5" fill={conf.trim} />
-        {/* Plume or Feather */}
-        {conf.plume && <rect x="9" y="1" width="2" height="3" fill={conf.plume} />}
+        {/* Shoulders / Collar Base */}
+        {role === "warrior" ? (
+          <>
+            <rect x="2" y="13" width="12" height="3" fill="#334155" />
+            <rect x="4" y="12" width="8" height="2" fill="#475569" />
+            <rect x="3" y="13" width="2" height="2" fill="#94a3b8" />
+            <rect x="11" y="13" width="2" height="2" fill="#94a3b8" />
+          </>
+        ) : role === "javelin" ? (
+          <>
+            <rect x="2" y="13" width="12" height="3" fill="#134e4a" />
+            <rect x="5" y="12" width="6" height="2" fill="#0d9488" />
+            <rect x="4" y="13" width="8" height="1" fill="#d97706" />
+          </>
+        ) : role === "scout" ? (
+          <>
+            <rect x="3" y="13" width="10" height="3" fill="#0f172a" />
+            <rect x="5" y="12" width="6" height="2" fill="#1e293b" />
+          </>
+        ) : role === "woodcutter" ? (
+          <>
+            <rect x="3" y="13" width="10" height="3" fill="#991b1b" />
+            <rect x="6" y="12" width="4" height="2" fill="#fed7aa" />
+          </>
+        ) : role === "builder" ? (
+          <>
+            <rect x="3" y="13" width="10" height="3" fill="#854d0e" />
+            <rect x="6" y="12" width="4" height="2" fill="#fed7aa" />
+          </>
+        ) : role === "stoneMiner" ? (
+          <>
+            <rect x="3" y="13" width="10" height="3" fill="#475569" />
+            <rect x="6" y="12" width="4" height="2" fill="#fed7aa" />
+          </>
+        ) : role === "goldMiner" ? (
+          <>
+            <rect x="3" y="13" width="10" height="3" fill="#78350f" />
+            <rect x="6" y="12" width="4" height="2" fill="#fed7aa" />
+          </>
+        ) : role === "farmer" ? (
+          <>
+            <rect x="3" y="13" width="10" height="3" fill="#3f6212" />
+            <rect x="6" y="12" width="4" height="2" fill="#fed7aa" />
+          </>
+        ) : (
+          <>
+            <rect x="3" y="13" width="10" height="3" fill="#525252" />
+            <rect x="6" y="12" width="4" height="2" fill="#fed7aa" />
+          </>
+        )}
+
+        {/* 1. BUILDER: Craftsman Leather Cap, friendly eyes, curls */}
+        {role === "builder" && (
+          <>
+            <rect x="3" y="6" width="10" height="6" fill="#fed7aa" />
+            <rect x="4" y="11" width="8" height="2" fill="#fdba74" />
+            <rect x="3" y="5" width="2" height="4" fill="#523414" />
+            <rect x="11" y="5" width="2" height="4" fill="#523414" />
+            <rect x="5" y="7" width="2" height="2" fill="#ffffff" />
+            <rect x="6" y="7" width="1" height="2" fill="#1e1b4b" />
+            <rect x="9" y="7" width="2" height="2" fill="#ffffff" />
+            <rect x="10" y="7" width="1" height="2" fill="#1e1b4b" />
+            <rect x="5" y="6" width="2" height="1" fill="#713f12" />
+            <rect x="9" y="6" width="2" height="1" fill="#713f12" />
+            <rect x="7" y="11" width="2" height="1" fill="#c2410c" />
+            <rect x="3" y="2" width="10" height="4" rx="1" fill="#eab308" />
+            <rect x="4" y="2" width="4" height="1" fill="#fef08a" />
+            <rect x="2" y="4" width="12" height="2" fill="#ca8a04" />
+            <rect x="12" y="3" width="1" height="3" fill="#f97316" />
+            <rect x="12" y="2" width="1" height="1" fill="#1e293b" />
+          </>
+        )}
+
+        {/* 2. WOODCUTTER: Forest Green Beanie with Red Pom-pom + Bushy Beard */}
+        {role === "woodcutter" && (
+          <>
+            <rect x="4" y="4" width="8" height="7" fill="#fed7aa" />
+            <rect x="5" y="6" width="2" height="2" fill="#ffffff" />
+            <rect x="6" y="6" width="1" height="2" fill="#1e1b4b" />
+            <rect x="9" y="6" width="2" height="2" fill="#ffffff" />
+            <rect x="10" y="6" width="1" height="2" fill="#1e1b4b" />
+            <rect x="3" y="8" width="10" height="5" rx="1" fill="#78350f" />
+            <rect x="4" y="7" width="8" height="2" fill="#92400e" />
+            <rect x="5" y="12" width="6" height="2" fill="#78350f" />
+            <rect x="4" y="1" width="8" height="4" rx="1" fill="#15803d" />
+            <rect x="5" y="1" width="4" height="1" fill="#4ade80" />
+            <rect x="3" y="3" width="10" height="2" fill="#166534" />
+            <rect x="7" y="0" width="2" height="2" fill="#dc2626" />
+          </>
+        )}
+
+        {/* 3. STONE MINER: Steel Miner Helmet with Forehead Lantern */}
+        {role === "stoneMiner" && (
+          <>
+            <rect x="4" y="5" width="8" height="7" fill="#fed7aa" />
+            <rect x="4" y="10" width="8" height="2" fill="#fdba74" />
+            <rect x="4" y="9" width="2" height="1" fill="#64748b" />
+            <rect x="10" y="8" width="2" height="1" fill="#64748b" />
+            <rect x="5" y="7" width="2" height="2" fill="#ffffff" />
+            <rect x="6" y="7" width="1" height="2" fill="#0f172a" />
+            <rect x="9" y="7" width="2" height="2" fill="#ffffff" />
+            <rect x="10" y="7" width="1" height="2" fill="#0f172a" />
+            <rect x="3" y="2" width="10" height="4" rx="1" fill="#64748b" />
+            <rect x="4" y="2" width="4" height="1" fill="#cbd5e1" />
+            <rect x="2" y="4" width="12" height="2" fill="#334155" />
+            <rect x="7" y="2" width="2" height="3" fill="#facc15" />
+            <rect x="7.5" y="2.5" width="1" height="2" fill="#ffffff" />
+          </>
+        )}
+
+        {/* 4. GOLD MINER: Brass/Gold Miner Helmet + Goatee */}
+        {role === "goldMiner" && (
+          <>
+            <rect x="4" y="5" width="8" height="7" fill="#fed7aa" />
+            <rect x="6" y="10" width="4" height="3" fill="#78350f" />
+            <rect x="5" y="7" width="2" height="2" fill="#ffffff" />
+            <rect x="6" y="7" width="1" height="2" fill="#1e1b4b" />
+            <rect x="9" y="7" width="2" height="2" fill="#ffffff" />
+            <rect x="10" y="7" width="1" height="2" fill="#1e1b4b" />
+            <rect x="3" y="2" width="10" height="4" rx="1" fill="#d97706" />
+            <rect x="4" y="2" width="4" height="1" fill="#fde047" />
+            <rect x="2" y="4" width="12" height="2" fill="#92400e" />
+            <rect x="7" y="2" width="2" height="3" fill="#0284c7" />
+            <rect x="7.5" y="2.5" width="1" height="2" fill="#73d9ff" />
+          </>
+        )}
+
+        {/* 5. FARMER: Wide-Brim Straw Hat with Red Ribbon + Wheat Stalk */}
+        {role === "farmer" && (
+          <>
+            <rect x="4" y="5" width="8" height="7" fill="#fed7aa" />
+            <rect x="4" y="10" width="8" height="2" fill="#fdba74" />
+            <rect x="5" y="9" width="1" height="1" fill="#ea580c" />
+            <rect x="10" y="9" width="1" height="1" fill="#ea580c" />
+            <rect x="5" y="7" width="2" height="2" fill="#ffffff" />
+            <rect x="6" y="7" width="1" height="2" fill="#166534" />
+            <rect x="9" y="7" width="2" height="2" fill="#ffffff" />
+            <rect x="10" y="7" width="1" height="2" fill="#166534" />
+            <rect x="9" y="11" width="4" height="1" fill="#facc15" />
+            <rect x="13" y="10" width="2" height="2" fill="#eab308" />
+            <rect x="5" y="1" width="6" height="3" fill="#eab308" />
+            <rect x="5" y="3" width="6" height="1" fill="#dc2626" />
+            <rect x="1" y="4" width="14" height="2" rx="1" fill="#ca8a04" />
+            <rect x="2" y="4" width="12" height="1" fill="#eab308" />
+          </>
+        )}
+
+        {/* 6. WARRIOR: Knight Great Helm with Visor Slit & Crimson Plume */}
+        {role === "warrior" && (
+          <>
+            <rect x="3" y="3" width="10" height="9" rx="1" fill="#64748b" />
+            <rect x="4" y="4" width="2" height="6" fill="#cbd5e1" />
+            <rect x="4" y="7" width="8" height="2" fill="#0f172a" />
+            <rect x="5" y="7.5" width="2" height="1" fill="#f43f5e" />
+            <rect x="9" y="7.5" width="2" height="1" fill="#f43f5e" />
+            <rect x="6" y="10" width="1" height="1" fill="#334155" />
+            <rect x="9" y="10" width="1" height="1" fill="#334155" />
+            <rect x="7" y="0" width="2" height="4" fill="#e11d48" />
+            <rect x="6" y="0" width="1" height="3" fill="#f43f5e" />
+            <rect x="8" y="0" width="1" height="3" fill="#be123c" />
+          </>
+        )}
+
+        {/* 7. JAVELIN: Bronze Skirmisher Helmet with Cheek Guards & Sky-Blue Crest */}
+        {role === "javelin" && (
+          <>
+            <rect x="5" y="5" width="6" height="7" fill="#fed7aa" />
+            <rect x="6" y="7" width="1.5" height="1.5" fill="#0f172a" />
+            <rect x="8.5" y="7" width="1.5" height="1.5" fill="#0f172a" />
+            <rect x="3" y="2" width="10" height="4" fill="#0284c7" />
+            <rect x="3" y="4.5" width="10" height="1.5" fill="#d97706" />
+            <rect x="3" y="6" width="2" height="4" fill="#0369a1" />
+            <rect x="11" y="6" width="2" height="4" fill="#0369a1" />
+            <rect x="7" y="0" width="2" height="3" fill="#38bdf8" />
+            <rect x="6" y="0" width="1" height="2" fill="#7dd3fc" />
+          </>
+        )}
+
+        {/* 8. SCOUT: Rogue Forest Cowl / Hood with Cyan Headband */}
+        {role === "scout" && (
+          <>
+            <rect x="3" y="1" width="10" height="11" rx="2" fill="#1e293b" />
+            <rect x="4" y="2" width="8" height="1" fill="#334155" />
+            <rect x="5" y="5" width="6" height="5" fill="#fed7aa" />
+            <rect x="4" y="4" width="8" height="1.5" fill="#0284c7" />
+            <rect x="7" y="4" width="2" height="1.5" fill="#38bdf8" />
+            <rect x="5.5" y="6.5" width="2" height="1.5" fill="#0f172a" />
+            <rect x="6.5" y="6.5" width="1" height="1" fill="#38bdf8" />
+            <rect x="8.5" y="6.5" width="2" height="1.5" fill="#0f172a" />
+            <rect x="9.5" y="6.5" width="1" height="1" fill="#38bdf8" />
+          </>
+        )}
+
+        {/* 9. TRAINEE / PEASANT: Messy Hair & Curious Eyes */}
+        {(role === "trainee" || !role) && (
+          <>
+            <rect x="4" y="5" width="8" height="7" fill="#fed7aa" />
+            <rect x="4" y="10" width="8" height="2" fill="#fdba74" />
+            <rect x="3" y="2" width="10" height="4" rx="1" fill="#713f12" />
+            <rect x="2" y="4" width="3" height="3" fill="#523414" />
+            <rect x="11" y="4" width="3" height="3" fill="#523414" />
+            <rect x="5" y="7" width="2" height="2" fill="#ffffff" />
+            <rect x="6" y="7" width="1" height="2" fill="#1e1b4b" />
+            <rect x="9" y="7" width="2" height="2" fill="#ffffff" />
+            <rect x="10" y="7" width="1" height="2" fill="#1e1b4b" />
+          </>
+        )}
       </svg>
       {isIdle && (
-        <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-400 border border-black animate-ping" />
+        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-400 border border-black animate-ping" />
       )}
     </div>
   );
@@ -552,7 +735,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
 
           {/* Population */}
           <div className="relative group flex items-center gap-1 border-l border-stone-800/80 pl-2">
-            <Users size={14} className={alivePop >= maxPop ? "text-rose-400" : "text-amber-300"} />
+            <WorkerHeadIcon role="trainee" size={16} />
             <span className={`font-bold ${alivePop >= maxPop ? "text-rose-300" : "text-amber-200"}`}>
               {alivePop}/{maxPop}
             </span>
@@ -1268,9 +1451,9 @@ export const GameHUD: React.FC<GameHUDProps> = ({
                           engine.aliveUnits().length >= engine.popCap()
                         }
                         onClick={() => engine.trainFromBarracks(selectedBuilding, "warrior")}
-                        className="btn-rpg w-full h-11 p-1 bg-[#2e0e13] hover:bg-[#451218] border border-[#f43f5e]/60 hover:border-[#f43f5e] disabled:opacity-35 text-red-200 rounded-xl flex flex-col items-center justify-between shadow active:scale-95"
+                        className="btn-rpg w-full h-11 p-1 bg-[#2e0e13] hover:bg-[#451218] border border-[#f43f5e]/60 hover:border-[#f43f5e] disabled:opacity-35 text-red-200 rounded-xl flex flex-col items-center justify-between shadow active:scale-95 cursor-pointer"
                       >
-                        <span className="text-sm">⚔️</span>
+                        <WorkerHeadIcon role="warrior" size={22} />
                         <span className="text-[8px] font-mono text-amber-300 font-bold leading-none">10💰30🌾</span>
                       </button>
                       <HUDTooltip
@@ -1294,9 +1477,9 @@ export const GameHUD: React.FC<GameHUDProps> = ({
                           engine.aliveUnits().length >= engine.popCap()
                         }
                         onClick={() => engine.trainFromBarracks(selectedBuilding, "javelin")}
-                        className="btn-rpg w-full h-11 p-1 bg-[#101b38] hover:bg-[#172554] border border-[#60a5fa]/60 hover:border-[#60a5fa] disabled:opacity-35 text-blue-200 rounded-xl flex flex-col items-center justify-between shadow active:scale-95"
+                        className="btn-rpg w-full h-11 p-1 bg-[#101b38] hover:bg-[#172554] border border-[#60a5fa]/60 hover:border-[#60a5fa] disabled:opacity-35 text-blue-200 rounded-xl flex flex-col items-center justify-between shadow active:scale-95 cursor-pointer"
                       >
-                        <span className="text-sm">🔱</span>
+                        <WorkerHeadIcon role="javelin" size={22} />
                         <span className="text-[8px] font-mono text-amber-300 font-bold leading-none">16💰22🌾</span>
                       </button>
                       <HUDTooltip
@@ -1320,9 +1503,9 @@ export const GameHUD: React.FC<GameHUDProps> = ({
                           engine.aliveUnits().length >= engine.popCap()
                         }
                         onClick={() => engine.trainFromBarracks(selectedBuilding, "scout")}
-                        className="btn-rpg w-full h-11 p-1 bg-[#091b22] hover:bg-[#0e2730] border border-[#38bdf8]/60 hover:border-[#38bdf8] disabled:opacity-35 text-cyan-200 rounded-xl flex flex-col items-center justify-between shadow active:scale-95"
+                        className="btn-rpg w-full h-11 p-1 bg-[#091b22] hover:bg-[#0e2730] border border-[#38bdf8]/60 hover:border-[#38bdf8] disabled:opacity-35 text-cyan-200 rounded-xl flex flex-col items-center justify-between shadow active:scale-95 cursor-pointer"
                       >
-                        <span className="text-sm">🧭</span>
+                        <WorkerHeadIcon role="scout" size={22} />
                         <span className="text-[8px] font-mono text-amber-300 font-bold leading-none">20🪵25🌾</span>
                       </button>
                       <HUDTooltip
